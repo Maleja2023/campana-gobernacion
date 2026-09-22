@@ -1,0 +1,10 @@
+# Secretos
+.env
+*.env
+# Dependencias y compilados
+node_modules/
+dist/
+# Archivos temporales de QGIS y GeoPackage
+*.gpkg-wal
+*.gpkg-shm
+*.qgs~
