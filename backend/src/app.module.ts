@@ -7,6 +7,7 @@ import { CifradoModule } from './cifrado/cifrado.module.js';
 import { DatabaseModule } from './database/database.module.js';
 import { SaludModule } from './salud/salud.module.js';
 import { SimpatizantesModule } from './simpatizantes/simpatizantes.module.js';
+import { TableroModule } from './tablero/tablero.module.js';
 import { TerritorioModule } from './territorio/territorio.module.js';
 
 @Module({
@@ -19,6 +20,7 @@ import { TerritorioModule } from './territorio/territorio.module.js';
     AuthModule,
     SaludModule,
     SimpatizantesModule,
+    TableroModule,
     TerritorioModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
