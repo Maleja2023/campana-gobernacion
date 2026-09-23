@@ -1,4 +1,5 @@
 import { BadRequestException, Controller, Get, ParseIntPipe, Query } from '@nestjs/common';
+import { Publico, RequierePermiso } from '../auth/decoradores.js';
 import { TerritorioService } from './territorio.service.js';
 
 const TIPOS_VALIDOS = ['MUNICIPIO', 'COMUNA', 'CORREGIMIENTO', 'BARRIO', 'VEREDA', 'CENTRO_POBLADO'];
@@ -11,6 +12,7 @@ export class TerritorioController {
    * GET /api/territorio/buscar?q=porvenir&tipo=VEREDA
    * Público: lo usa el formulario de registro. Solo devuelve datos del DANE.
    */
+  @Publico()
   @Get('buscar')
   buscar(
     @Query('q') q?: string,
@@ -31,9 +33,10 @@ export class TerritorioController {
    * GET /api/territorio/mapa            -> municipios del departamento
    * GET /api/territorio/mapa?padre=2    -> subdivisiones de ese territorio
    *
-   * TODO (paso 4, autenticación): proteger este endpoint. Los conteos de
-   * simpatizantes son información estratégica de la campaña.
+   * Requiere login y el permiso MAPA_VER: los conteos de simpatizantes son
+   * información estratégica de la campaña.
    */
+  @RequierePermiso('MAPA_VER')
   @Get('mapa')
   mapa(@Query('padre', new ParseIntPipe({ optional: true })) padre?: number) {
     return this.territorio.mapa(padre);

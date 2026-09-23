@@ -1,5 +1,6 @@
 import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
 import { sql } from 'kysely';
+import { Publico } from '../auth/decoradores.js';
 import { DatabaseService } from '../database/database.service.js';
 
 @Controller('salud')
@@ -7,6 +8,7 @@ export class SaludController {
   constructor(private readonly database: DatabaseService) {}
 
   /** Verifica que la API y la base de datos respondan. */
+  @Publico()
   @Get()
   async revisar() {
     try {
