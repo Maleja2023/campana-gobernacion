@@ -1,14 +1,17 @@
 import { Type } from 'class-transformer';
 import { IsInt, IsOptional, IsString, Length, Matches, Min } from 'class-validator';
 
+/** Edición parcial: solo se cambian los campos que se envían. */
 export class EditarSimpatizanteDto {
+  @IsOptional()
   @IsString()
   @Length(2, 80)
-  nombres!: string;
+  nombres?: string;
 
+  @IsOptional()
   @IsString()
   @Length(2, 80)
-  apellidos!: string;
+  apellidos?: string;
 
   @IsOptional()
   @IsString()
@@ -20,4 +23,10 @@ export class EditarSimpatizanteDto {
   @IsInt()
   @Min(1)
   territorioId?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  puestoId?: number;
 }

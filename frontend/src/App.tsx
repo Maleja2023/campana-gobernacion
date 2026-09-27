@@ -16,6 +16,7 @@ import { RegistrarPage } from './paginas/RegistrarPage';
 import { RedPage } from './paginas/RedPage';
 import { SimpatizantesPage } from './paginas/SimpatizantesPage';
 import { UsuariosPage } from './paginas/UsuariosPage';
+import { DiaDPage, SinAccesoPage } from './paginas/DiaDPage';
 import { useSesion } from './sesion/SesionContext';
 
 /** A dónde debe ir el usuario mientras el proceso de acceso no esté LISTO. */
@@ -36,8 +37,26 @@ function Protected() {
   return <Outlet />;
 }
 
+/** Primera pantalla que el usuario puede ver, según sus permisos. */
+const PANTALLAS: [permiso: string, ruta: string][] = [
+  ['MAPA_VER', '/mapa'],
+  ['REPORTE_VER', '/tablero'],
+  ['SIMPATIZANTE_VER', '/simpatizantes'],
+  ['SIMPATIZANTE_CREAR', '/registrar'],
+  ['AGENDA_VER', '/agenda'],
+  ['REPORTE_COMUNITARIO', '/reportar'],
+  ['E14_CARGAR', '/dia-d'],
+];
+
+function Inicio() {
+  const { tienePermiso } = useSesion();
+  const ruta = PANTALLAS.find(([permiso]) => tienePermiso(permiso))?.[1];
+  return ruta ? <Navigate to={ruta} replace /> : <SinAccesoPage />;
+}
+
 function Permission({ code, children }: { code: string; children: ReactNode }) {
   const { tienePermiso } = useSesion();
+  // Sin permiso se va al inicio, que elige una pantalla permitida (nunca vuelve aquí).
   return tienePermiso(code) ? <>{children}</> : <Navigate to="/" replace />;
 }
 
@@ -50,7 +69,7 @@ export function App() {
       <Route path="/configurar-mfa" element={<ConfigurarMfaPage />} />
       <Route path="/verificar-mfa" element={<VerificarMfaPage />} />
       <Route element={<AppLayout />}>
-        <Route index element={<Navigate to="/mapa" replace />} />
+        <Route index element={<Inicio />} />
         <Route path="mapa" element={<Permission code="MAPA_VER"><MapaPage /></Permission>} />
         <Route path="tablero" element={<Permission code="REPORTE_VER"><TableroPage /></Permission>} />
         <Route path="agenda" element={<Permission code="AGENDA_VER"><AgendaPage /></Permission>} />
@@ -60,6 +79,7 @@ export function App() {
         <Route path="red" element={<Permission code="REPORTE_VER"><RedPage /></Permission>} />
         <Route path="registrar" element={<Permission code="SIMPATIZANTE_CREAR"><RegistrarPage /></Permission>} />
         <Route path="usuarios" element={<Permission code="USUARIO_GESTIONAR"><UsuariosPage /></Permission>} />
+        <Route path="dia-d" element={<Permission code="E14_CARGAR"><DiaDPage /></Permission>} />
       </Route>
     </Route>
     <Route path="*" element={<Navigate to="/" replace />} />

@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { CifradoService } from '../cifrado/cifrado.service.js';
+import { CaptchaService } from '../comun/captcha/captcha.service.js';
 import { ConflictoError, NoEncontradoError, ReglaNegocioError } from '../comun/errores/errores-dominio.js';
 import { DatabaseService } from '../database/database.service.js';
 import type { UsuarioSesion } from '../auth/auth.types.js';
@@ -21,6 +22,7 @@ export class SimpatizantesService {
     private readonly database: DatabaseService,
     private readonly cifrado: CifradoService,
     private readonly repo: SimpatizantesRepositorio,
+    private readonly captcha: CaptchaService,
   ) {}
 
   async politica(): Promise<Politica> {
@@ -39,12 +41,17 @@ export class SimpatizantesService {
     });
   }
 
+  configuracionRegistro() {
+    return { captchaSiteKey: this.captcha.siteKey };
+  }
+
   async autorregistro(dto: RegistroSimpatizanteDto, ip: string | null, userAgent: string | null) {
+    await this.captcha.verificar(dto.captcha, ip);
     return this.registrar(dto, dto.codigoLink, dto.canal, null, ip, userAgent, false);
   }
 
   async crear(dto: RegistroSimpatizanteDto, usuario: UsuarioSesion, ip: string | null, userAgent: string | null) {
-    const codigo = dto.codigoLink ?? (await this.linkPrincipal(usuario.id));
+    const codigo = dto.codigoLink ? await this.linkPermitido(usuario, dto.codigoLink) : await this.linkPrincipal(usuario.id);
     return this.registrar(dto, codigo, 'DIGITADOR', usuario.id, ip, userAgent, true);
   }
 
@@ -109,28 +116,51 @@ export class SimpatizantesService {
   }
 
   async editar(usuario: UsuarioSesion, personaId: string, dto: EditarSimpatizanteDto) {
+    const vacio = [dto.nombres, dto.apellidos, dto.telefono, dto.territorioId, dto.puestoId].every((v) => v === undefined);
+    if (vacio) throw new ReglaNegocioError('No se envió ningún cambio');
     return this.database.comoUsuario(usuario.id, async (trx) => {
       if (!(await this.repo.visible(trx, personaId))) throw new NoEncontradoError('Simpatizante no encontrado');
 
       const telefono = dto.telefono ? this.cifrado.normalizarNumero(dto.telefono) : null;
       await this.repo.editar(trx, {
         personaId,
-        nombres: dto.nombres.trim(),
-        apellidos: dto.apellidos.trim(),
+        nombres: dto.nombres?.trim() ?? null,
+        apellidos: dto.apellidos?.trim() ?? null,
         territorioId: dto.territorioId ?? null,
         telefonoHash: telefono ? this.cifrado.hash(telefono) : null,
         telefonoCifrado: telefono ? this.cifrado.cifrar(telefono) : null,
+        puestoId: dto.puestoId ?? null,
       });
       return { mensaje: 'Datos actualizados' };
     });
   }
 
-  async retirar(usuario: UsuarioSesion, personaId: string) {
+  async retirar(usuario: UsuarioSesion, personaId: string, motivo: string) {
     return this.database.comoUsuario(usuario.id, async (trx) => {
       if (!(await this.repo.visible(trx, personaId))) throw new NoEncontradoError('Simpatizante no encontrado');
-      await this.repo.retirar(trx, personaId);
+      await this.repo.retirar(trx, personaId, motivo.trim());
       return { mensaje: 'Simpatizante retirado' };
     });
+  }
+
+  async reactivar(usuario: UsuarioSesion, personaId: string) {
+    return this.database.comoUsuario(usuario.id, async (trx) => {
+      if (!(await this.repo.visible(trx, personaId))) throw new NoEncontradoError('Simpatizante no encontrado');
+      await this.repo.reactivar(trx, personaId);
+      return { mensaje: 'Simpatizante reactivado' };
+    });
+  }
+
+  async historial(usuario: UsuarioSesion, personaId: string) {
+    return this.database.comoUsuario(usuario.id, async (trx) => {
+      if (!(await this.repo.visible(trx, personaId))) throw new NoEncontradoError('Simpatizante no encontrado');
+      return this.repo.historial(trx, personaId);
+    });
+  }
+
+  /** Líderes que el usuario puede elegir como "líder que refiere" al registrar. */
+  async lideresParaRegistro(usuario: UsuarioSesion) {
+    return this.database.comoUsuario(usuario.id, (trx) => this.repo.lideresParaRegistro(trx));
   }
 
   /** Lee las filas y deja constancia auditada de quién exportó, con qué motivo
@@ -164,8 +194,19 @@ export class SimpatizantesService {
 
   private async linkPrincipal(usuarioId: string): Promise<string> {
     const link = await this.database.comoUsuario(usuarioId, (trx) => this.repo.linkPrincipalDeUsuario(trx, usuarioId));
-    if (!link) throw new ReglaNegocioError('No existe un link de referido activo');
+    if (!link) throw new ReglaNegocioError('Elija el líder que refiere a la persona');
     return link.codigo;
+  }
+
+  /** Un usuario solo puede atribuir el registro a un líder de su alcance
+   * (su propia red o su territorio): no a cualquier código que conozca. */
+  private async linkPermitido(usuario: UsuarioSesion, codigo: string): Promise<string> {
+    const normalizado = codigo.trim().toUpperCase();
+    const lideres = await this.lideresParaRegistro(usuario);
+    if (!lideres.some((l) => l.codigo_link === normalizado)) {
+      throw new ReglaNegocioError('El líder elegido no está dentro de su alcance');
+    }
+    return normalizado;
   }
 
   private async registrar(

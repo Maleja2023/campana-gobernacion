@@ -2764,3 +2764,84 @@ tbody tr:hover td {
     border-radius: 0;
   }
 }
+
+/* ---------- Historial de cambios ---------- */
+
+.linea-tiempo {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 18px;
+  border-left: 2px solid var(--borde);
+  display: grid;
+  gap: 16px;
+}
+
+.linea-tiempo li {
+  position: relative;
+}
+
+.linea-tiempo li::before {
+  content: '';
+  position: absolute;
+  left: -25px;
+  top: 5px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--seq-4);
+  box-shadow: 0 0 0 3px var(--superficie);
+}
+
+.linea-tiempo li.evento-retiro::before {
+  background: var(--critico);
+}
+
+.linea-tiempo li.evento-reactivacion::before,
+.linea-tiempo li.evento-registro::before {
+  background: var(--bien);
+}
+
+.linea-tiempo-cabeza {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  align-items: baseline;
+}
+
+.linea-tiempo-cabeza span {
+  color: var(--texto-3);
+  font-size: 13px;
+}
+
+.linea-tiempo dl {
+  margin: 6px 0 0;
+  display: grid;
+  gap: 3px;
+  font-size: 13.5px;
+}
+
+.linea-tiempo dl > div {
+  display: flex;
+  gap: 8px;
+}
+
+.linea-tiempo dt {
+  color: var(--texto-3);
+  min-width: 140px;
+}
+
+.linea-tiempo dd {
+  margin: 0;
+}
+
+.linea-tiempo del {
+  color: var(--texto-3);
+}
+
+.linea-tiempo-detalle {
+  margin: 6px 0 0;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--superficie-2);
+  font-size: 13.5px;
+}

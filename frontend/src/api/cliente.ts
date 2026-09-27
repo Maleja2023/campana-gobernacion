@@ -163,7 +163,16 @@ export type FiltrosSimpatizantes = {
   pagina?: number;
   porPagina?: number;
 };
-export type EditarSimpatizante = { nombres: string; apellidos: string; telefono?: string; territorioId?: number };
+export type EditarSimpatizante = { nombres?: string; apellidos?: string; telefono?: string; territorioId?: number; puestoId?: number };
+export type EntradaHistorial = {
+  id: number;
+  accion: 'REGISTRO' | 'EDICION' | 'RETIRO' | 'REACTIVACION';
+  cambios: Record<string, { antes?: string | null; despues?: string | null }>;
+  detalle: string | null;
+  usuario: string | null;
+  ocurrido_en: string;
+};
+export type LiderRegistro = { miembro_id: string; nombre: string; cargo_codigo: string; codigo_link: string; municipio: string | null };
 export type Alerta = {
   id: string;
   tipo_codigo: string;
@@ -251,6 +260,8 @@ export const api = {
   mfaCodigos: (codigo: string) => cliente.post<MfaConfirmacion>('/auth/mfa/codigos', { codigo }),
   mapa: (padre?: number) => cliente.get<ZonaCollection>(padre ? `/territorio/mapa?padre=${padre}` : '/territorio/mapa'),
   puestos: (municipioId: number) => cliente.get<Puesto[]>(`/tablero/puestos?municipioId=${municipioId}`),
+  /** Catálogo público de puestos de un municipio (formularios de registro; no exige sesión). */
+  puestosCatalogo: (municipioId: number) => cliente.get<Puesto[]>(`/territorio/puestos?municipioId=${municipioId}`),
   contorno: () => cliente.get<Contorno>('/territorio/contorno'),
   simpatizantes: (territorioId: number, pagina = 1) => cliente.get<ListaSimpatizantes>(`/simpatizantes?territorioId=${territorioId}&pagina=${pagina}&porPagina=20`),
   listarSimpatizantes: (filtros: FiltrosSimpatizantes) => {
@@ -267,7 +278,11 @@ export const api = {
     return cliente.get<ListaSimpatizantes>(`/simpatizantes?${q.toString()}`);
   },
   editarSimpatizante: (personaId: string, body: EditarSimpatizante) => cliente.patch<{ mensaje: string }>(`/simpatizantes/${personaId}`, body),
-  retirarSimpatizante: (personaId: string) => cliente.post<{ mensaje: string }>(`/simpatizantes/${personaId}/retirar`, {}),
+  retirarSimpatizante: (personaId: string, motivo: string) => cliente.post<{ mensaje: string }>(`/simpatizantes/${personaId}/retirar`, { motivo }),
+  reactivarSimpatizante: (personaId: string) => cliente.post<{ mensaje: string }>(`/simpatizantes/${personaId}/reactivar`, {}),
+  historialSimpatizante: (personaId: string) => cliente.get<EntradaHistorial[]>(`/simpatizantes/${personaId}/historial`),
+  lideresRegistro: () => cliente.get<LiderRegistro[]>('/simpatizantes/lideres-registro'),
+  configuracionRegistro: () => cliente.get<{ captchaSiteKey: string | null }>('/registro/configuracion'),
   documentoSimpatizante: (personaId: string) => cliente.get<DocumentoDescifrado>(`/simpatizantes/${personaId}/documento`),
   exportarSimpatizantes: (body: { motivo: string; territorioId?: number; municipioId?: number; estado?: string; texto?: string }) =>
     cliente.archivo('/simpatizantes/exportar', body),

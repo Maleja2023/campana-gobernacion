@@ -6,6 +6,7 @@ import type { UsuarioSesion } from '../auth/auth.types.js';
 import { EditarSimpatizanteDto } from './dto/editar-simpatizante.dto.js';
 import { ExportarSimpatizantesDto } from './dto/exportar-simpatizantes.dto.js';
 import { RegistroSimpatizanteDto } from './dto/registro-simpatizante.dto.js';
+import { RetirarSimpatizanteDto } from './dto/retirar-simpatizante.dto.js';
 import { SimpatizantesService } from './simpatizantes.service.js';
 
 @Controller()
@@ -16,6 +17,13 @@ export class SimpatizantesController {
   @Publico()
   politica() {
     return this.simpatizantes.politica();
+  }
+
+  /** GET /api/registro/configuracion — lo que el formulario público necesita saber (captcha). */
+  @Get('registro/configuracion')
+  @Publico()
+  configuracion() {
+    return this.simpatizantes.configuracionRegistro();
   }
 
   @Get('registro/link/:codigo')
@@ -38,6 +46,13 @@ export class SimpatizantesController {
   @HttpCode(201)
   crear(@Body() dto: RegistroSimpatizanteDto, @UsuarioActual() usuario: UsuarioSesion, @Req() req: Request) {
     return this.simpatizantes.crear(dto, usuario, req.ip ?? null, req.headers['user-agent'] ?? null);
+  }
+
+  /** GET /api/simpatizantes/lideres-registro — líderes que se pueden elegir como "líder que refiere". */
+  @Get('simpatizantes/lideres-registro')
+  @RequierePermiso('SIMPATIZANTE_CREAR')
+  lideresRegistro(@UsuarioActual() usuario: UsuarioSesion) {
+    return this.simpatizantes.lideresParaRegistro(usuario);
   }
 
   @Get('simpatizantes')
@@ -83,11 +98,30 @@ export class SimpatizantesController {
     return this.simpatizantes.editar(usuario, personaId, dto);
   }
 
+  /** POST /api/simpatizantes/:personaId/retirar  { "motivo": "..." } (obligatorio, queda en el historial) */
   @Post('simpatizantes/:personaId/retirar')
   @RequierePermiso('SIMPATIZANTE_EDITAR')
   @HttpCode(200)
-  retirar(@Param('personaId', new ParseUUIDPipe()) personaId: string, @UsuarioActual() usuario: UsuarioSesion) {
-    return this.simpatizantes.retirar(usuario, personaId);
+  retirar(
+    @Param('personaId', new ParseUUIDPipe()) personaId: string,
+    @Body() dto: RetirarSimpatizanteDto,
+    @UsuarioActual() usuario: UsuarioSesion,
+  ) {
+    return this.simpatizantes.retirar(usuario, personaId, dto.motivo);
+  }
+
+  @Post('simpatizantes/:personaId/reactivar')
+  @RequierePermiso('SIMPATIZANTE_EDITAR')
+  @HttpCode(200)
+  reactivar(@Param('personaId', new ParseUUIDPipe()) personaId: string, @UsuarioActual() usuario: UsuarioSesion) {
+    return this.simpatizantes.reactivar(usuario, personaId);
+  }
+
+  /** GET /api/simpatizantes/:personaId/historial — quién cambió qué y cuándo. */
+  @Get('simpatizantes/:personaId/historial')
+  @RequierePermiso('SIMPATIZANTE_VER')
+  historial(@Param('personaId', new ParseUUIDPipe()) personaId: string, @UsuarioActual() usuario: UsuarioSesion) {
+    return this.simpatizantes.historial(usuario, personaId);
   }
 
   /** POST /api/simpatizantes/exportar — exige un motivo; queda auditado en

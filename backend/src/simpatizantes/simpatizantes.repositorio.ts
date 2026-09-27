@@ -43,13 +43,32 @@ export interface FiltrosListado {
   porPagina: number;
 }
 
+/** null en un campo significa "no cambiar" (campana.editar_simpatizante, migración 21). */
 export interface DatosEdicion {
   personaId: string;
-  nombres: string;
-  apellidos: string;
+  nombres: string | null;
+  apellidos: string | null;
   territorioId: number | null;
   telefonoHash: Buffer | null;
   telefonoCifrado: Buffer | null;
+  puestoId: number | null;
+}
+
+export interface EntradaHistorial {
+  id: number;
+  accion: string;
+  cambios: Record<string, { antes?: string | null; despues?: string | null }>;
+  detalle: string | null;
+  usuario: string | null;
+  ocurrido_en: string;
+}
+
+export interface LiderParaRegistro {
+  miembro_id: string;
+  nombre: string;
+  cargo_codigo: string;
+  codigo_link: string;
+  municipio: string | null;
 }
 
 export interface FiltrosExportar {
@@ -215,14 +234,43 @@ export class SimpatizantesRepositorio {
   async editar(db: Kysely<DB>, datos: DatosEdicion): Promise<void> {
     await sql`
       select campana.editar_simpatizante(
-        ${datos.personaId}::uuid, ${datos.nombres}, ${datos.apellidos},
-        ${datos.territorioId}::integer, ${datos.telefonoHash}, ${datos.telefonoCifrado}
+        ${datos.personaId}::uuid, ${datos.nombres}::text, ${datos.apellidos}::text,
+        ${datos.territorioId}::integer, ${datos.telefonoHash}::bytea, ${datos.telefonoCifrado}::bytea,
+        ${datos.puestoId}::integer
       )
     `.execute(db);
   }
 
-  async retirar(db: Kysely<DB>, personaId: string): Promise<void> {
-    await sql`select campana.retirar_simpatizante(${personaId}::uuid)`.execute(db);
+  async retirar(db: Kysely<DB>, personaId: string, motivo: string): Promise<void> {
+    await sql`select campana.retirar_simpatizante(${personaId}::uuid, ${motivo}::text)`.execute(db);
+  }
+
+  async reactivar(db: Kysely<DB>, personaId: string): Promise<void> {
+    await sql`select campana.reactivar_simpatizante(${personaId}::uuid)`.execute(db);
+  }
+
+  /** Historial legible (migración 24). RLS: solo de personas visibles para el usuario. */
+  async historial(db: Kysely<DB>, personaId: string): Promise<EntradaHistorial[]> {
+    const { rows } = await sql<EntradaHistorial>`
+      select h.id::integer as id, h.accion, h.cambios, h.detalle,
+             nullif(btrim(coalesce(p.nombres, '') || ' ' || coalesce(p.apellidos, '')), '') as usuario,
+             h.ocurrido_en
+        from campana.historial_simpatizante h
+        left join acceso.usuarios u on u.id = h.usuario_id
+        left join personas.personas p on p.id = u.persona_id
+       where h.persona_id = ${personaId}::uuid
+       order by h.ocurrido_en desc, h.id desc
+    `.execute(db);
+    return rows;
+  }
+
+  /** Líderes que el usuario puede elegir como "líder que refiere" (migración 24). */
+  async lideresParaRegistro(db: Kysely<DB>): Promise<LiderParaRegistro[]> {
+    const { rows } = await sql<LiderParaRegistro>`
+      select miembro_id, nombre, cargo_codigo, codigo_link, municipio
+        from campana.lideres_para_registro()
+    `.execute(db);
+    return rows;
   }
 
   /** Mismas columnas que expone campana.v_simpatizantes vía listar(): nunca

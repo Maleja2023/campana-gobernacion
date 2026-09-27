@@ -76,6 +76,12 @@ export class RegistroSimpatizanteDto {
   @IsIn(['FORMULARIO_WEB', 'CHATBOT_WEB'])
   canal!: 'FORMULARIO_WEB' | 'CHATBOT_WEB';
 
+  /** Token de Cloudflare Turnstile. Lo exige el registro público cuando el captcha está activo. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(4096)
+  captcha?: string;
+
   @IsOptional()
   @Type(() => Number)
   @Min(-180)

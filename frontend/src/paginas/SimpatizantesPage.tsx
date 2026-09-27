@@ -48,6 +48,7 @@ export function SimpatizantesPage() {
   const [exportando, setExportando] = useState(false);
   const [errorAccion, setErrorAccion] = useState('');
   const [cedulaDe, setCedulaDe] = useState<{ persona_id: string; documento: string }>();
+  const [historialDe, setHistorialDe] = useState<Simpatizante | null>(null);
 
   const municipios = useQuery({ queryKey: ['municipios'], queryFn: api.municipios });
   const lideres = useQuery({ queryKey: ['red-arbol'], queryFn: api.redArbol });
@@ -95,15 +96,35 @@ export function SimpatizantesPage() {
 
   async function retirar(s: Simpatizante) {
     if (s.estado_codigo === 'RETIRADO') return;
-    const nombre = `${s.nombres ?? ''} ${s.apellidos ?? ''}`.trim();
-    if (!window.confirm(`¿Retirar a ${nombre} de la campaña?`)) return;
+    const nombre = nombrePropio(`${s.nombres ?? ''} ${s.apellidos ?? ''}`);
+    const motivo = window.prompt(`¿Por qué se retira a ${nombre} de la campaña? El motivo queda en su historial.`);
+    if (motivo === null) return;
+    if (motivo.trim().length < 5) {
+      setErrorAccion('El motivo del retiro debe tener al menos 5 caracteres.');
+      return;
+    }
     setErrorAccion('');
     setRetirando(s.persona_id);
     try {
-      await api.retirarSimpatizante(s.persona_id);
+      await api.retirarSimpatizante(s.persona_id, motivo.trim());
       await refrescar();
     } catch (cause) {
       setErrorAccion(cause instanceof Error ? cause.message : 'No fue posible retirar a la persona.');
+    } finally {
+      setRetirando(undefined);
+    }
+  }
+
+  async function reactivar(s: Simpatizante) {
+    const nombre = nombrePropio(`${s.nombres ?? ''} ${s.apellidos ?? ''}`);
+    if (!window.confirm(`¿Reactivar a ${nombre}? Volverá a contar como simpatizante activo.`)) return;
+    setErrorAccion('');
+    setRetirando(s.persona_id);
+    try {
+      await api.reactivarSimpatizante(s.persona_id);
+      await refrescar();
+    } catch (cause) {
+      setErrorAccion(cause instanceof Error ? cause.message : 'No fue posible reactivar a la persona.');
     } finally {
       setRetirando(undefined);
     }
@@ -241,6 +262,8 @@ export function SimpatizantesPage() {
         </div>
       )}
 
+      {historialDe && <HistorialPanel simpatizante={historialDe} onClose={() => setHistorialDe(null)} />}
+
       {editando && (
         <EditarSimpatizanteForm
           simpatizante={editando}
@@ -266,7 +289,7 @@ export function SimpatizantesPage() {
                   <th>Territorio</th>
                   <th>Estado</th>
                   <th>Registrado</th>
-                  {(puedeEditar || puedeVerCedula) && <th>Acciones</th>}
+                  <th>Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -285,23 +308,37 @@ export function SimpatizantesPage() {
                       <span className={`estado-pill estado-${(s.estado_codigo ?? '').toLowerCase()}`}>{etiquetaEstado(s.estado_codigo)}</span>
                     </td>
                     <td>{formatFecha(s.capturado_en)}</td>
-                    {(puedeEditar || puedeVerCedula) && (
-                      <td>
+                    <td>
                         <div className="row-actions">
+                          <button type="button" className="link-button" aria-label={`Historial de ${s.nombres} ${s.apellidos}`} onClick={() => setHistorialDe(s)}>
+                            Historial
+                          </button>
                           {puedeEditar && (
                             <>
                               <button type="button" className="link-button" aria-label={`Editar a ${s.nombres} ${s.apellidos}`} onClick={() => setEditando(s)}>
                                 Editar
                               </button>
-                              <button
-                                type="button"
-                                className="link-button danger"
-                                aria-label={`Retirar a ${s.nombres} ${s.apellidos}`}
-                                disabled={s.estado_codigo === 'RETIRADO' || retirando === s.persona_id}
-                                onClick={() => void retirar(s)}
-                              >
-                                {retirando === s.persona_id ? 'Retirando...' : 'Retirar'}
-                              </button>
+                              {s.estado_codigo === 'RETIRADO' ? (
+                                <button
+                                  type="button"
+                                  className="link-button"
+                                  aria-label={`Reactivar a ${s.nombres} ${s.apellidos}`}
+                                  disabled={retirando === s.persona_id}
+                                  onClick={() => void reactivar(s)}
+                                >
+                                  Reactivar
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  className="link-button danger"
+                                  aria-label={`Retirar a ${s.nombres} ${s.apellidos}`}
+                                  disabled={retirando === s.persona_id}
+                                  onClick={() => void retirar(s)}
+                                >
+                                  {retirando === s.persona_id ? 'Retirando...' : 'Retirar'}
+                                </button>
+                              )}
                             </>
                           )}
                           {puedeVerCedula && (
@@ -311,12 +348,11 @@ export function SimpatizantesPage() {
                           )}
                         </div>
                       </td>
-                    )}
                   </tr>
                 ))}
                 {lista.data.datos.length === 0 && (
                   <tr>
-                    <td colSpan={puedeEditar || puedeVerCedula ? 5 : 4}>No se encontraron simpatizantes con estos filtros.</td>
+                    <td colSpan={5}>No se encontraron simpatizantes con estos filtros.</td>
                   </tr>
                 )}
               </tbody>
@@ -358,8 +394,15 @@ function EditarSimpatizanteForm({
   const [resultados, setResultados] = useState<{ id: number; tipo: string; nombre: string; municipio: string | null }[]>([]);
   const [territorioId, setTerritorioId] = useState('');
   const [territorioNombre, setTerritorioNombre] = useState('');
+  const [puestoId, setPuestoId] = useState('');
   const [error, setError] = useState('');
   const [guardando, setGuardando] = useState(false);
+  const municipioPuestos = municipioBusqueda || (simpatizante.municipio_id ? String(simpatizante.municipio_id) : '');
+  const puestos = useQuery({
+    queryKey: ['puestos-catalogo', municipioPuestos],
+    queryFn: () => api.puestosCatalogo(Number(municipioPuestos)),
+    enabled: Boolean(municipioPuestos),
+  });
 
   async function buscarTerritorio(texto: string) {
     setTextoBusqueda(texto);
@@ -376,11 +419,13 @@ function EditarSimpatizanteForm({
     setError('');
     setGuardando(true);
     try {
+      // Solo se envía lo que cambió: el historial anota exactamente eso.
       await api.editarSimpatizante(simpatizante.persona_id, {
-        nombres: nombres.trim(),
-        apellidos: apellidos.trim(),
+        nombres: nombres.trim() !== (simpatizante.nombres ?? '') ? nombres.trim() : undefined,
+        apellidos: apellidos.trim() !== (simpatizante.apellidos ?? '') ? apellidos.trim() : undefined,
         telefono: telefono || undefined,
         territorioId: territorioId ? Number(territorioId) : undefined,
+        puestoId: puestoId ? Number(puestoId) : undefined,
       });
       await onDone();
     } catch (cause) {
@@ -392,9 +437,7 @@ function EditarSimpatizanteForm({
 
   return (
     <form className="dashboard-block visit-form" onSubmit={guardar}>
-      <h2>
-        Editar a {simpatizante.nombres} {simpatizante.apellidos}
-      </h2>
+      <h2>Editar a {nombrePropio(`${simpatizante.nombres ?? ''} ${simpatizante.apellidos ?? ''}`)}</h2>
       <div className="form-columns">
         <label>
           Nombres
@@ -463,6 +506,17 @@ function EditarSimpatizanteForm({
           </>
         )}
       </div>
+      <label>
+        Puesto de votación <span className="optional">deja "No cambiar" para conservar el actual</span>
+        <select value={puestoId} onChange={(e) => setPuestoId(e.target.value)} disabled={!municipioPuestos}>
+          <option value="">No cambiar</option>
+          {puestos.data?.map((p) => (
+            <option key={p.id} value={p.id}>
+              {nombrePropio(p.nombre)}
+            </option>
+          ))}
+        </select>
+      </label>
       {error && (
         <div className="form-error" role="alert">
           {error}
@@ -477,5 +531,101 @@ function EditarSimpatizanteForm({
         </button>
       </div>
     </form>
+  );
+}
+
+const ACCIONES: Record<string, string> = {
+  REGISTRO: 'Registro',
+  EDICION: 'Edición',
+  RETIRO: 'Retiro',
+  REACTIVACION: 'Reactivación',
+};
+
+const CAMPOS: Record<string, string> = {
+  nombres: 'Nombres',
+  apellidos: 'Apellidos',
+  telefono: 'Celular',
+  residencia: 'Residencia',
+  puesto: 'Puesto de votación',
+  estado: 'Estado',
+  lider: 'Líder que refiere',
+  canal: 'Canal',
+};
+
+const CANALES: Record<string, string> = {
+  FORMULARIO_WEB: 'Formulario web',
+  CHATBOT_WEB: 'Enlace del líder (chat)',
+  DIGITADOR: 'Registro asistido',
+  TELEGRAM: 'Telegram',
+  EVENTO: 'Evento',
+};
+
+function valorLegible(campo: string, valor: string | null | undefined) {
+  if (valor === null || valor === undefined || valor === '') return '—';
+  if (campo === 'estado') return etiquetaEstado(valor);
+  if (campo === 'canal') return CANALES[valor] ?? valor;
+  if (campo === 'telefono') return valor;
+  return nombrePropio(valor);
+}
+
+/** Historial de cambios de un simpatizante: quién, cuándo, qué y de qué valor a qué valor. */
+function HistorialPanel({ simpatizante, onClose }: { simpatizante: Simpatizante; onClose: () => void }) {
+  const historial = useQuery({
+    queryKey: ['historial', simpatizante.persona_id],
+    queryFn: () => api.historialSimpatizante(simpatizante.persona_id),
+  });
+  return (
+    <section className="dashboard-block historial" aria-label="Historial de cambios">
+      <div className="block-heading">
+        <div>
+          <p className="eyebrow">Historial de cambios</p>
+          <h2>{nombrePropio(`${simpatizante.nombres ?? ''} ${simpatizante.apellidos ?? ''}`)}</h2>
+        </div>
+        <button type="button" className="secondary-button" onClick={onClose}>
+          Cerrar
+        </button>
+      </div>
+      {historial.isPending && <Cargando texto="Cargando historial..." />}
+      {historial.isError && <ErrorEstado mensaje={historial.error.message} reintentar={() => void historial.refetch()} />}
+      {historial.data && historial.data.length === 0 && <p className="empty-inline">Sin cambios registrados.</p>}
+      {historial.data && historial.data.length > 0 && (
+        <ol className="linea-tiempo">
+          {historial.data.map((h) => (
+            <li key={h.id} className={`evento-${h.accion.toLowerCase()}`}>
+              <div className="linea-tiempo-cabeza">
+                <strong>{ACCIONES[h.accion] ?? h.accion}</strong>
+                <span>
+                  {new Date(h.ocurrido_en).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })}
+                  {' · '}
+                  {h.usuario ? nombrePropio(h.usuario) : 'Registro público'}
+                </span>
+              </div>
+              {Object.keys(h.cambios).length > 0 && (
+                <dl>
+                  {Object.entries(h.cambios).map(([campo, c]) => (
+                    <div key={campo}>
+                      <dt>{CAMPOS[campo] ?? campo}</dt>
+                      <dd>
+                        {c.antes !== undefined && (
+                          <>
+                            <del>{valorLegible(campo, c.antes)}</del> →{' '}
+                          </>
+                        )}
+                        {valorLegible(campo, c.despues)}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
+              {h.detalle && (
+                <p className="linea-tiempo-detalle">
+                  {h.accion === 'RETIRO' ? `Motivo: ${h.detalle}` : h.accion === 'REACTIVACION' ? `Había sido retirado por: ${h.detalle}` : h.detalle}
+                </p>
+              )}
+            </li>
+          ))}
+        </ol>
+      )}
+    </section>
   );
 }
