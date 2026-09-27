@@ -33,6 +33,8 @@ export class TableroRepositorio {
              ultimo_registro, intentos_duplicado
         from campana.v_ranking_miembros
        where cargo_codigo in ('LIDER', 'SUBLIDER')
+         -- Solo miembros del alcance del usuario (migración 26).
+         and miembro_id in (select miembro_id from campana.miembros_visibles())
        order by activos desc nulls last, nombre
        limit ${limite}
     `.execute(db);
@@ -44,7 +46,8 @@ export class TableroRepositorio {
       select miembro_id, nombre, cargo_codigo, activos, ultimos_7_dias,
              ultimo_registro, intentos_duplicado
         from campana.v_lideres_inactivos
-       order by nombre
+       where miembro_id in (select miembro_id from campana.miembros_visibles())
+       order by ultimo_registro nulls first, nombre
     `.execute(db);
     return rows;
   }
@@ -55,6 +58,7 @@ export class TableroRepositorio {
              m.registrados, m.porcentaje
         from campana.v_avance_metas_miembro m
         left join campana.v_ranking_miembros r on r.miembro_id = m.miembro_id
+       where m.miembro_id in (select miembro_id from campana.miembros_visibles())
        order by r.nombre
     `.execute(db);
     return rows;
@@ -64,9 +68,15 @@ export class TableroRepositorio {
     const { rows } = await sql`
       select territorio_id, territorio, meta, fecha_limite, registrados, porcentaje
         from campana.v_avance_metas_territorio
+       where territorio_id in (select territorio_id from acceso.territorios_visibles())
        order by territorio
     `.execute(db);
     return rows;
+  }
+
+  async diasInactividad(db: Kysely<DB>): Promise<number> {
+    const { rows } = await sql<{ dias: number }>`select campana.parametro_int('LIDER_INACTIVO_DIAS') as dias`.execute(db);
+    return rows[0]?.dias ?? 7;
   }
 
   async necesidadesPorMunicipio(db: Kysely<DB>, municipioId?: number) {

@@ -10,6 +10,9 @@ import type { RegistroSimpatizanteDto } from './dto/registro-simpatizante.dto.js
 import { construirLibroSimpatizantes } from './exportar-excel.js';
 import { SimpatizantesRepositorio } from './simpatizantes.repositorio.js';
 
+/** Tiempo máximo que un registro puede esperar en el celular antes de enviarse. */
+export const DIAS_MAXIMOS_SIN_CONEXION = 30;
+
 export interface Politica {
   version: number;
   texto: string;
@@ -51,8 +54,9 @@ export class SimpatizantesService {
   }
 
   async crear(dto: RegistroSimpatizanteDto, usuario: UsuarioSesion, ip: string | null, userAgent: string | null) {
+    const capturadoEn = this.validarCaptura(dto.capturadoEn);
     const codigo = dto.codigoLink ? await this.linkPermitido(usuario, dto.codigoLink) : await this.linkPrincipal(usuario.id);
-    return this.registrar(dto, codigo, 'DIGITADOR', usuario.id, ip, userAgent, true);
+    return this.registrar(dto, codigo, 'DIGITADOR', usuario.id, ip, userAgent, true, capturadoEn);
   }
 
   async listar(
@@ -198,6 +202,22 @@ export class SimpatizantesService {
     return link.codigo;
   }
 
+  /** Hora de captura de un registro hecho sin conexión: no puede ser futura
+   * (se toleran 5 minutos de desfase del reloj del celular) ni de hace más de
+   * 30 días. Sin valor, el registro es de ahora. */
+  private validarCaptura(valor: string | undefined): Date | null {
+    if (!valor) return null;
+    const fecha = new Date(valor);
+    const ahora = Date.now();
+    if (Number.isNaN(fecha.getTime())) throw new ReglaNegocioError('La hora de captura no es válida');
+    if (fecha.getTime() > ahora + 5 * 60_000) throw new ReglaNegocioError('La hora de captura está en el futuro: revise la hora del celular');
+    if (fecha.getTime() < ahora - DIAS_MAXIMOS_SIN_CONEXION * 86_400_000) {
+      throw new ReglaNegocioError(`El registro se capturó hace más de ${DIAS_MAXIMOS_SIN_CONEXION} días y ya no se puede enviar`);
+    }
+    // Menos de 5 minutos de diferencia: es un registro en línea normal.
+    return ahora - fecha.getTime() < 5 * 60_000 ? null : fecha;
+  }
+
   /** Un usuario solo puede atribuir el registro a un líder de su alcance
    * (su propia red o su territorio): no a cualquier código que conozca. */
   private async linkPermitido(usuario: UsuarioSesion, codigo: string): Promise<string> {
@@ -217,6 +237,7 @@ export class SimpatizantesService {
     ip: string | null,
     userAgent: string | null,
     devolverId: boolean,
+    capturadoEn: Date | null = null,
   ) {
     if (!codigoLink) throw new ReglaNegocioError('El código de referido es obligatorio');
     if (dto.aceptaPolitica !== true || !dto.finalidades.includes('ORGANIZACION_CAMPANA')) {
@@ -243,7 +264,9 @@ export class SimpatizantesService {
         canal,
         politicaVersion: dto.politicaVersion,
         finalidades: dto.finalidades,
-        aceptacionTexto: `Aceptó la política v${dto.politicaVersion} en ${canal}`,
+        aceptacionTexto: capturadoEn
+          ? `Aceptó la política v${dto.politicaVersion} en ${canal}, capturado sin conexión el ${capturadoEn.toISOString()} (hora del dispositivo)`
+          : `Aceptó la política v${dto.politicaVersion} en ${canal}`,
         jornadaId: jornada?.id ?? null,
         puestoId: dto.puestoId ?? null,
         necesidad: dto.necesidad?.trim() || null,
@@ -252,6 +275,7 @@ export class SimpatizantesService {
         lat: dto.lat ?? null,
         ip,
         userAgent: userAgent?.slice(0, 300) ?? null,
+        capturadoEn,
       }),
     );
 

@@ -172,6 +172,12 @@ export type EntradaHistorial = {
   usuario: string | null;
   ocurrido_en: string;
 };
+export type CatalogoMunicipio = {
+  id: number;
+  nombre: string;
+  zonas: { id: number; nombre: string; tipo: string }[];
+  puestos: { id: number; nombre: string }[];
+};
 export type LiderRegistro = { miembro_id: string; nombre: string; cargo_codigo: string; codigo_link: string; municipio: string | null };
 export type Alerta = {
   id: string;
@@ -281,6 +287,7 @@ export const api = {
   retirarSimpatizante: (personaId: string, motivo: string) => cliente.post<{ mensaje: string }>(`/simpatizantes/${personaId}/retirar`, { motivo }),
   reactivarSimpatizante: (personaId: string) => cliente.post<{ mensaje: string }>(`/simpatizantes/${personaId}/reactivar`, {}),
   historialSimpatizante: (personaId: string) => cliente.get<EntradaHistorial[]>(`/simpatizantes/${personaId}/historial`),
+  catalogoRegistro: () => cliente.get<CatalogoMunicipio[]>('/territorio/catalogo-registro'),
   lideresRegistro: () => cliente.get<LiderRegistro[]>('/simpatizantes/lideres-registro'),
   configuracionRegistro: () => cliente.get<{ captchaSiteKey: string | null }>('/registro/configuracion'),
   documentoSimpatizante: (personaId: string) => cliente.get<DocumentoDescifrado>(`/simpatizantes/${personaId}/documento`),
@@ -294,6 +301,7 @@ export const api = {
   registrosDiarios: (desde: string, hasta: string) => cliente.get<RegistroDiario[]>(`/tablero/registros-diarios?desde=${desde}&hasta=${hasta}`),
   ranking: (limite = 10) => cliente.get<LiderRanking[]>(`/tablero/ranking?limite=${limite}`),
   lideresInactivos: () => cliente.get<LiderRanking[]>('/tablero/lideres-inactivos'),
+  configuracionTablero: () => cliente.get<{ liderInactivoDias: number }>('/tablero/configuracion'),
   metas: () => cliente.get<{ miembros: MetaMiembro[]; territorios: MetaTerritorio[] }>('/tablero/metas'),
   necesidades: () => cliente.get<{ porMunicipio: NecesidadMunicipio[]; sinPropuesta: NecesidadSinPropuesta[] }>('/tablero/necesidades'),
   agendaVisitas: (query = '') => cliente.get<{ datos: AgendaVisita[]; total: number; pagina: number; porPagina: number }>(`/agenda/visitas${query ? `?${query}` : ''}`),

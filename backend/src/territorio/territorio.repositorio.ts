@@ -51,6 +51,33 @@ export class TerritorioRepositorio {
     return rows;
   }
 
+  /** Municipios con sus zonas (veredas, barrios, comunas...) y puestos de la
+   * jornada vigente, en una sola consulta: es lo que el celular guarda para
+   * registrar sin conexión. Solo datos públicos (DANE y Registraduría). */
+  async catalogoRegistro(db: Kysely<DB>) {
+    const { rows } = await sql<{ catalogo: unknown }>`
+      with jornada as (select id from electoral.jornadas order by fecha desc, id desc limit 1)
+      select coalesce(json_agg(json_build_object(
+               'id', m.id,
+               'nombre', m.nombre,
+               'zonas', coalesce((
+                 select json_agg(json_build_object('id', z.id, 'nombre', z.nombre, 'tipo', z.tipo_codigo) order by z.nombre)
+                   from territorio.descendientes(m.id) d
+                   join territorio.territorios z on z.id = d.territorio_id
+                  where z.id <> m.id), '[]'::json),
+               'puestos', coalesce((
+                 select json_agg(json_build_object('id', p.id, 'nombre', p.nombre) order by p.nombre)
+                   from electoral.puestos_votacion p
+                  where territorio.ancestro(p.territorio_id, 'MUNICIPIO') = m.id
+                    and exists (select 1 from electoral.puestos_jornada pj, jornada j
+                                 where pj.puesto_id = p.id and pj.jornada_id = j.id)), '[]'::json)
+             ) order by m.nombre), '[]'::json) as catalogo
+        from territorio.territorios m
+       where m.tipo_codigo = 'MUNICIPIO'
+    `.execute(db);
+    return rows[0].catalogo;
+  }
+
   contorno(db: Kysely<DB>) {
     return sql<{ geojson: unknown; bbox: number[] }>`
       select ST_AsGeoJSON(ST_SimplifyPreserveTopology(t.geom, 0.001), 6)::json as geojson,
