@@ -3160,3 +3160,30 @@ tbody tr:hover td {
 .tramite ol li { border: 0; padding: 0; display: list-item; }
 .publica-form fieldset { border: 0; margin: 0; padding: 0; }
 .publica-form legend { padding: 0; margin-bottom: 8px; font-size: 13.5px; font-weight: 600; color: var(--texto-2); }
+
+/* Eventos: QR de asistencia, selector de ubicación y comparativo */
+.asistencia-evento { display: grid; gap: 18px; margin: 18px 0 26px; padding: 18px; border: 1px solid var(--borde); border-radius: var(--radio); background: var(--superficie-2); }
+.asistencia-qr { display: flex; gap: 20px; align-items: flex-start; }
+.asistencia-qr img { width: 170px; height: 170px; flex: none; border: 1px solid var(--borde); border-radius: var(--radio-sm); background: #fff; padding: 6px; }
+.asistencia-qr h2 { margin: 0 0 6px; font-size: 16px; }
+.codigo-evento { margin: 8px 0 12px; font-size: 13.5px; overflow-wrap: anywhere; }
+.codigo-evento .codigo { font-family: ui-monospace, monospace; font-weight: 700; letter-spacing: 0.05em; }
+.asistencia-cifras { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+.asistencia-cifras div { display: grid; gap: 2px; padding: 12px 14px; background: var(--superficie); border: 1px solid var(--borde); border-radius: var(--radio-sm); }
+.asistencia-cifras strong { font-size: 24px; }
+.asistencia-cifras span { font-size: 12.5px; color: var(--texto-2); }
+.asistencia-manual { align-items: end; }
+.asistencia-manual p { flex-basis: 100%; margin: 0; }
+.asistencia-evento .table-wrap table { width: 100%; }
+.selector-ubicacion { display: grid; gap: 6px; }
+.selector-ubicacion-cabecera { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; font-size: 13.5px; font-weight: 600; color: var(--texto-2); }
+.selector-ubicacion-cabecera div { display: flex; gap: 12px; }
+.selector-ubicacion-mapa { height: 280px; border-radius: var(--radio-sm); border: 1px solid var(--borde); cursor: crosshair; }
+.comparativo-hallazgos { margin: 0 0 16px; padding: 14px 14px 14px 32px; background: var(--acento-suave); border-radius: var(--radio-sm); color: var(--acento-texto); line-height: 1.6; font-size: 13.5px; }
+.comparativo-grafico { height: 320px; margin-bottom: 16px; }
+.checkin-politica { font-size: 13.5px; color: var(--texto-2); }
+.checkin-politica p { white-space: pre-wrap; }
+@media (max-width: 640px) {
+  .asistencia-qr { flex-direction: column; align-items: center; text-align: center; }
+  .asistencia-qr .form-actions { justify-content: center; flex-wrap: wrap; }
+}

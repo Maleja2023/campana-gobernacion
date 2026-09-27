@@ -98,6 +98,14 @@ dicen quién responde. Respaldos, Cloudflare y cierre de la campaña:
 `scripts/respaldo.sh`, `scripts/probar_restauracion.sh`, `docs/cloudflare.md`
 y `docs/plan-cierre.md`.
 
+Y `35_eventos_checkin.sql`: eventos con ubicación en el mapa y registro de
+asistencia por QR. Cada evento tiene un QR (Agenda → la visita → "Descargar
+para imprimir") que lleva a `/e/<código>`. Quien lo escanea registra su
+asistencia, y si no estaba en la base queda como simpatizante acreditado a
+quien creó el evento. El equipo también puede marcar asistencia por cédula.
+La pestaña "Asistencia vs. referidos" compara, por municipio o por vereda,
+cuánta gente va a los eventos y cuántos referidos hay.
+
 ## Registro sin conexión
 
 En `/registrar` se puede registrar sin señal (veredas sin cobertura):

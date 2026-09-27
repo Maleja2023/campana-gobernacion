@@ -400,10 +400,14 @@ export type MetaMiembro = { miembro_id: string | null; nombre: string | null; me
 export type MetaTerritorio = { territorio_id: number | null; territorio: string | null; meta: number | null; registrados: number | null; porcentaje: number | null; fecha_limite: string | null };
 export type NecesidadMunicipio = { municipio_id: number | null; municipio: string | null; categoria_codigo: string | null; categoria: string | null; cantidad: number | null };
 export type NecesidadSinPropuesta = { codigo: string | null; nombre: string | null; necesidades: number | null };
-export type AgendaVisita = { id: string; tipo_codigo: string | null; tipo: string | null; nombre: string | null; estado: string | null; con_candidato: boolean | null; inicia_en: string | null; termina_en: string | null; territorio: string | null; ruta: string | null; asistentes_aprox: number | null; resumen: string | null; lideres_presentes: number | null; organizaciones: number | null; planteamientos: number | null; compromisos: number | null };
+export type AgendaVisita = { id: string; lon?: number | null; lat?: number | null; tipo_codigo: string | null; tipo: string | null; nombre: string | null; estado: string | null; con_candidato: boolean | null; inicia_en: string | null; termina_en: string | null; territorio: string | null; ruta: string | null; asistentes_aprox: number | null; resumen: string | null; lideres_presentes: number | null; organizaciones: number | null; planteamientos: number | null; compromisos: number | null };
 export type AgendaCompromiso = { id: string; descripcion: string | null; estado: string | null; categoria: string | null; ruta: string | null; visita: string | null; propuesta: string | null; dias_abierto: number | null; municipio_id: number | null; evento_id: string | null };
 export type AgendaCatalogos = { eventos: { codigo: string; nombre: string }[]; organizaciones: { codigo: string; nombre: string }[]; categorias: { codigo: string; nombre: string }[]; propuestas: { id: string; titulo: string }[] };
 export type AgendaDetalle = { visita: AgendaVisita; lideres: { nombre: string; cargo: string }[]; organizaciones: { nombre: string; tipo: string }[]; planteamientos: { id: string; descripcion: string; categoria_codigo: string | null; prioridad: string | null }[]; compromisos: AgendaCompromiso[] };
+export type EventoPublico = { nombre: string; tipo: string; lugar: string; municipio_id: number; inicia_en: string; termina_en: string; estado: string; abierto: boolean; abre_en: string; cierra_en: string };
+export type Asistente = { persona_id: string; nombre: string; residencia: string | null; metodo: 'QR' | 'MANUAL'; registrada_en: string; nuevo: boolean };
+export type AsistenciaEvento = { codigo: string; asistentes: Asistente[]; total: number; nuevos: number };
+export type FilaComparativo = { zona_id: number; zona: string; eventos: number; asistentes: number; asistentes_nuevos: number; referidos: number; referidos_en_eventos: number };
 export type TerritorioCatalogo = { id: number; nombre: string; codigo_oficial: string | null };
 export type MiembroRed = {
   miembro_id: string;
@@ -574,6 +578,12 @@ export const api = {
   agendaActualizarCompromiso: (id: string, body: unknown) => cliente.patch<AgendaCompromiso>(`/agenda/compromisos/${id}`, body),
   agendaCobertura: (padre?: number) => cliente.get<GeoJSON.FeatureCollection>(padre ? `/agenda/cobertura?padre=${padre}` : '/agenda/cobertura'),
   agendaCatalogos: () => cliente.get<AgendaCatalogos>('/agenda/catalogos'),
+  agendaAsistencia: (id: string) => cliente.get<AsistenciaEvento>(`/agenda/visitas/${id}/asistencia`),
+  agendaMarcarAsistencia: (id: string, documento: string) => cliente.post<{ resultado: string; nombre: string | null }>(`/agenda/visitas/${id}/asistencia`, { documento }),
+  agendaComparativo: (f: { desde: string; hasta: string; municipioId?: number }) => cliente.get<FilaComparativo[]>(`/agenda/comparativo${consulta(f)}`),
+  eventoPublico: (codigo: string) => cliente.get<EventoPublico>(`/eventos-publico/${encodeURIComponent(codigo)}`),
+  checkinEvento: (codigo: string, body: { documento: string; nombres: string; apellidos: string; telefono?: string; territorioId: number; finalidades: string[]; politicaVersion: number; aceptaPolitica: boolean; captcha?: string }) =>
+    cliente.post<{ mensaje: string }>(`/eventos-publico/${encodeURIComponent(codigo)}/checkin`, body),
   reportarNecesidad: (body: unknown) => cliente.post<{ id: string }>('/agenda/reportes-comunitarios', body),
   misReportes: () => cliente.get<{ id: string; territorio_id: number; descripcion: string; categoria_codigo: string; prioridad: string; reportada_en: string }[]>('/agenda/reportes-comunitarios/mios'),
   municipios: () => cliente.get<TerritorioCatalogo[]>('/territorio/municipios'),

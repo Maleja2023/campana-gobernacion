@@ -24,7 +24,7 @@ Internet ─> Cloudflare ┤                                    ├─> Nginx �
 
 | Dominio | Quién entra | Qué se puede hacer |
 |---|---|---|
-| `app.dominio.co` | Cualquiera, con usuario, contraseña y doble factor | Registro público (`/r/…`), política (`/privacidad`), derechos del titular (`/mis-datos`) y el trabajo diario de líderes y coordinadores |
+| `app.dominio.co` | Cualquiera, con usuario, contraseña y doble factor | Registro público (`/r/…`), asistencia a eventos (`/e/…`), política (`/privacidad`), derechos del titular (`/mis-datos`) y el trabajo diario de líderes y coordinadores |
 | `admin.dominio.co` | Solo los correos autorizados en Cloudflare Access, y además con usuario, contraseña y doble factor | Todo lo anterior, más **Usuarios**, **Protección de datos** (solicitudes de titulares y bitácora) y **exportes** |
 
 Rutas de la API que solo responden en `admin.dominio.co`:
@@ -145,6 +145,7 @@ límites; estos frenan el abuso antes de que llegue al servidor. Con
 | Login | `starts_with(http.request.uri.path, "/api/auth/")` | 10 peticiones por minuto |
 | Registro público | `http.request.uri.path eq "/api/registro" and http.request.method eq "POST"` | 5 por minuto |
 | Derechos del titular | `starts_with(http.request.uri.path, "/api/titular/") and http.request.method eq "POST"` | 5 por minuto |
+| Check-in de eventos | `starts_with(http.request.uri.path, "/api/eventos-publico/") and http.request.method eq "POST"` | 30 por minuto (en un evento muchos comparten el wifi) |
 | API en general | `starts_with(http.request.uri.path, "/api/")` | 300 por minuto |
 
 - El plan Free trae **una** regla de límite de peticiones: use la de

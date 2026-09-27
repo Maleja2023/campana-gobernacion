@@ -6,6 +6,7 @@ import { Cargando, ErrorEstado } from '../componentes/Estados';
 import { Icono } from '../componentes/Icono';
 import { useSesion } from '../sesion/SesionContext';
 import { nombrePropio } from '../util/nombres';
+import { descargar, tarjetaConQr } from '../util/tarjetaQr';
 
 type Tab = 'enlace' | 'solicitudes' | 'arbol' | 'metas' | 'ranking';
 const CARGOS: { codigo: 'COORDINADOR' | 'LIDER' | 'SUBLIDER'; etiqueta: string }[] = [
@@ -88,47 +89,6 @@ const MENSAJE_WHATSAPP = (url: string) => `Te invito a hacer parte de la campañ
 const MENSAJE_WHATSAPP_LIDER = (url: string, rol: string) =>
   `Te invito a ser ${rol} de mi equipo en la campaña a la Gobernación del Caquetá. Regístrate aquí y cuéntame en qué zona puedes trabajar: ${url}`;
 
-async function tarjetaConQr(nombre: string, codigo: string, url: string, lema = 'Escanea y regístrate'): Promise<string> {
-  const qr = await QRCode.toDataURL(url, { margin: 1, width: 520, errorCorrectionLevel: 'M' });
-  const imagen = new Image();
-  imagen.src = qr;
-  await imagen.decode();
-  const lienzo = document.createElement('canvas');
-  lienzo.width = 720;
-  lienzo.height = 1000;
-  const c = lienzo.getContext('2d')!;
-  c.fillStyle = '#ffffff';
-  c.fillRect(0, 0, 720, 1000);
-  c.fillStyle = '#0b1b2e';
-  c.fillRect(0, 0, 720, 200);
-  c.fillStyle = '#ffffff';
-  c.textAlign = 'center';
-  c.font = '600 30px "Public Sans Variable", system-ui, sans-serif';
-  c.fillText('Campaña a la Gobernación del Caquetá', 360, 90);
-  c.font = '400 24px "Public Sans Variable", system-ui, sans-serif';
-  c.fillStyle = '#b7c5d8';
-  c.fillText(lema, 360, 140);
-  c.drawImage(imagen, 100, 250, 520, 520);
-  c.fillStyle = '#0f1b2d';
-  c.font = '600 30px "Public Sans Variable", system-ui, sans-serif';
-  c.fillText(`Te invita: ${nombre}`, 360, 840);
-  c.fillStyle = '#475467';
-  c.font = '400 24px "Public Sans Variable", system-ui, sans-serif';
-  c.fillText(`Código ${codigo}`, 360, 885);
-  c.font = '400 20px "Public Sans Variable", system-ui, sans-serif';
-  c.fillText(url.replace(/^https?:\/\//, ''), 360, 930);
-  return lienzo.toDataURL('image/png');
-}
-
-function descargar(dataUrl: string, archivo: string) {
-  const a = document.createElement('a');
-  a.href = dataUrl;
-  a.download = archivo;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-}
-
 function MiEnlace({ verSolicitudes }: { verSolicitudes: () => void }) {
   const cache = useQueryClient();
   const { usuario } = useSesion();
@@ -194,7 +154,7 @@ function MiEnlace({ verSolicitudes }: { verSolicitudes: () => void }) {
               <button
                 type="button"
                 className="secondary-button"
-                onClick={() => void tarjetaConQr(nombre, principal.codigo, principal.url).then((t) => descargar(t, `tarjeta-${principal.codigo}.png`))}
+                onClick={() => void tarjetaConQr(`Te invita: ${nombre}`, principal.codigo, principal.url).then((t) => descargar(t, `tarjeta-${principal.codigo}.png`))}
               >
                 Tarjeta para imprimir
               </button>
@@ -276,7 +236,7 @@ function EnlaceLideresTarjeta({
           <button
             type="button"
             className="secondary-button"
-            onClick={() => void tarjetaConQr(nombre, e.codigo, e.url, `Únete a mi equipo como ${rol}`).then((t) => descargar(t, `tarjeta-${roles}-${e.codigo}.png`))}
+            onClick={() => void tarjetaConQr(`Te invita: ${nombre}`, e.codigo, e.url, `Únete a mi equipo como ${rol}`).then((t) => descargar(t, `tarjeta-${roles}-${e.codigo}.png`))}
           >
             Tarjeta para imprimir
           </button>
