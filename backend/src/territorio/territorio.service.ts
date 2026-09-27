@@ -23,9 +23,21 @@ export class TerritorioService {
     return rows;
   }
 
+  /** Municipios del departamento (id y nombre), para listas y filtros. */
+  async municipios() {
+    return this.database.db
+      .selectFrom('territorio.territorios')
+      .select(['id', 'nombre'])
+      .where('tipo_codigo', '=', 'MUNICIPIO')
+      .orderBy('nombre')
+      .execute();
+  }
+
   /**
    * GeoJSON de los hijos de un territorio con su conteo de simpatizantes.
    * Sin `padre`, devuelve los municipios del departamento.
+   * Las zonas sin polígono (comunas, corregimientos) vienen con geometry null
+   * para que el frontend pueda listarlas aunque no se dibujen.
    */
   async mapa(padre?: number) {
     const padreId =
@@ -49,7 +61,8 @@ export class TerritorioService {
                'features', coalesce(json_agg(json_build_object(
                    'type', 'Feature',
                    'id', m.id,
-                   'geometry', ST_AsGeoJSON(ST_SimplifyPreserveTopology(m.geom, 0.0005), 6)::json,
+                   'geometry', case when m.geom is not null
+                                    then ST_AsGeoJSON(ST_SimplifyPreserveTopology(m.geom, 0.0005), 6)::json end,
                    'properties', json_build_object(
                        'nombre', m.nombre,
                        'tipo', m.tipo_codigo,
@@ -59,7 +72,6 @@ export class TerritorioService {
              ) as geojson
         from territorio.v_mapa m
        where m.padre_id = ${padreId}
-         and m.geom is not null
     `.execute(this.database.db);
 
     return rows[0].geojson;

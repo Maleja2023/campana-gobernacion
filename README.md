@@ -14,11 +14,12 @@ campana-gobernacion/
 │   ├── 06_importar_gpkg.bat      importa caqueta.gpkg al esquema staging
 │   ├── 07_carga_territorio.sql   carga el territorio real del Caquetá
 │   ├── 08_datos_demo.sql         (opcional) 800 simpatizantes ficticios para pruebas
-│   └── 09_consultas_utiles.sql   consultas de referencia para la API y reportes
+│   ├── 09_consultas_utiles.sql   consultas de referencia para la API y reportes
+│   └── 12_correccion_veredas.sql corrige las veredas de una base cargada antes de este arreglo
 ├── datos_gis/
 │   └── caqueta.gpkg
-├── backend/                      (siguiente fase: API en NestJS)
-└── frontend/                     (siguiente fase: aplicación web)
+├── backend/                      API en NestJS (ver backend/README.md)
+└── frontend/                     aplicación web en React (ver frontend/README.md)
 ```
 
 ## Requisitos
@@ -37,7 +38,15 @@ campana-gobernacion/
 5. (Opcional, solo en una base de pruebas) ejecutar `08_datos_demo.sql`.
 
 Resultado esperado del paso 4: 1 departamento, 16 municipios, 4 comunas,
-13 corregimientos, 1.274 veredas y 146 puestos de votación.
+13 corregimientos, 1.220 veredas y 146 puestos de votación.
+
+El paso 4 depura la capa de veredas antes de cargarla: cada vereda queda en el
+municipio que la contiene según el límite oficial (MGN), se descartan los
+polígonos "SIN DEFINIR" y se unen las veredas repetidas.
+
+**Si tu base se cargó antes de este arreglo** (tiene 1.274 veredas), ejecuta
+`12_correccion_veredas.sql` una vez. Mueve lo ya registrado a la vereda o al
+municipio correcto sin borrar ningún simpatizante.
 
 Para volver a empezar de cero: borrar la base (clic derecho > Delete) y repetir.
 

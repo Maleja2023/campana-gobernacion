@@ -29,6 +29,13 @@ export class TerritorioController {
     return this.territorio.buscar(texto, tipo, padre);
   }
 
+  /** GET /api/territorio/municipios  (público: lo usa también el formulario de registro) */
+  @Publico()
+  @Get('municipios')
+  municipios() {
+    return this.territorio.municipios();
+  }
+
   /**
    * GET /api/territorio/mapa            -> municipios del departamento
    * GET /api/territorio/mapa?padre=2    -> subdivisiones de ese territorio
