@@ -1,0 +1,2 @@
+export function Cargando({ texto = 'Cargando...' }: { texto?: string }) { return <div className="state-card"><span className="loader" />{texto}</div>; }
+export function ErrorEstado({ mensaje, reintentar }: { mensaje: string; reintentar?: () => void }) { return <div className="state-card error-state"><strong>No se pudo cargar</strong><span>{mensaje}</span>{reintentar && <button type="button" onClick={reintentar}>Reintentar</button>}</div>; }
