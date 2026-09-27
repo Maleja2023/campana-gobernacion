@@ -118,6 +118,15 @@ Y `36_comunicaciones.sql`:
 - **Correo opcional** en el registro público.
 - Proveedores y costos: `docs/comunicaciones.md`.
 
+Y `37_dia_d.sql`: día de elecciones.
+- Jornada activa, tarjetón y mesas por puesto (el gerente).
+- Testigos asignados por puesto y mesa (el coordinador, en su municipio).
+- El testigo carga desde el celular la foto del E-14 y los votos de sus
+  mesas.
+- Revisión de los E-14 con la foto.
+- Conteo rápido en vivo para el candidato, el gerente y los coordinadores.
+- Guía completa en `docs/dia-d.md`.
+
 ## Registro sin conexión
 
 En `/registrar` se puede registrar sin señal (veredas sin cobertura):

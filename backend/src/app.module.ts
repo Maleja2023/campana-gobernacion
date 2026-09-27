@@ -20,6 +20,7 @@ import { ReportesModule } from './reportes/reportes.module.js';
 import { TableroModule } from './tablero/tablero.module.js';
 import { TerritorioModule } from './territorio/territorio.module.js';
 import { ComunicacionesModule } from './comunicaciones/comunicaciones.module.js';
+import { DiaDModule } from './dia-d/dia-d.module.js';
 import { TitularModule } from './titular/titular.module.js';
 import { UsuariosModule } from './usuarios/usuarios.module.js';
 
@@ -45,6 +46,7 @@ import { UsuariosModule } from './usuarios/usuarios.module.js';
     TerritorioModule,
     TitularModule,
     ComunicacionesModule,
+    DiaDModule,
     UsuariosModule,
   ],
   providers: [

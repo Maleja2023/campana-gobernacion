@@ -18,6 +18,7 @@ const MIGRACIONES: [string, string][] = [
   ['34_derechos_titular.sql', "to_regprocedure('cumplimiento.radicar_solicitud(text,bytea,text,text)')"],
   ['35_eventos_checkin.sql', "to_regprocedure('eventos.comparativo_zonas(date,date,integer)')"],
   ['36_comunicaciones.sql', "to_regprocedure('comunicaciones.preparar_envio(uuid,integer[],timestamptz)')"],
+  ['37_dia_d.sql', "to_regprocedure('electoral.conteo_rapido(text,integer)')"],
 ];
 
 @Controller('salud')

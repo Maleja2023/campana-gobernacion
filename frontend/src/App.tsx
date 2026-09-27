@@ -97,7 +97,7 @@ export function App() {
         <Route path="red" element={<Permission code="REPORTE_VER"><RedPage /></Permission>} />
         <Route path="registrar" element={<Permission code="SIMPATIZANTE_CREAR"><RegistrarPage /></Permission>} />
         <Route path="usuarios" element={<Permission code="USUARIO_GESTIONAR"><UsuariosPage /></Permission>} />
-        <Route path="dia-d" element={<Permission code="E14_CARGAR"><DiaDPage /></Permission>} />
+        <Route path="dia-d" element={<AlgunPermiso codigos={['E14_CARGAR', 'DIA_D_VER', 'DIA_D_GESTIONAR', 'DIA_D_CONFIGURAR']}><DiaDPage /></AlgunPermiso>} />
         <Route path="comunicaciones" element={<AlgunPermiso codigos={['MIEMBRO_GESTIONAR', 'COMUNICACION_ENVIAR', 'COMUNICACION_APROBAR']}><ComunicacionesPage /></AlgunPermiso>} />
         <Route path="cumplimiento" element={<Permission code="SOLICITUD_TITULAR"><CumplimientoPage /></Permission>} />
       </Route>

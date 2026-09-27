@@ -74,7 +74,7 @@ Internet ──> Cloudflare (WAF, anti-DDoS, HTTPS)
    - `00_instalacion_completa.sql`
    - Importar `caqueta.gpkg` al esquema `staging` (mismos comandos `ogr2ogr` de `06_importar_gpkg.bat`).
    - `07_carga_territorio.sql`
-   - Migraciones `10` a `36`, en orden (`22_correccion_veredas.sql` solo hace falta en bases cargadas antes de la corrección de veredas).
+   - Migraciones `10` a `37`, en orden (`22_correccion_veredas.sql` solo hace falta en bases cargadas antes de la corrección de veredas).
    - **Nunca** `08_datos_demo.sql`.
 5. Crear el usuario de la API con una contraseña generada, **distinta** a la de desarrollo:
    ```sql
@@ -272,7 +272,7 @@ Define por escrito, antes del lanzamiento, quién decide cada paso y cómo se co
 
 - [ ] Servidor con SSH por llave, sin root, firewall solo para Cloudflare
 - [ ] PostgreSQL escuchando solo en localhost
-- [ ] Migraciones 10 a 36 aplicadas; datos demo NO cargados
+- [ ] Migraciones 10 a 37 aplicadas; datos demo NO cargados
 - [ ] Secretos de producción nuevos, respaldados fuera del servidor
 - [ ] Doble factor activado y probado para gerente, candidato, coordinadores y administradores
 - [ ] Sesión en cookies seguras (sin tokens en el navegador)
