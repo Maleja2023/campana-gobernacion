@@ -106,6 +106,18 @@ quien creó el evento. El equipo también puede marcar asistencia por cédula.
 La pestaña "Asistencia vs. referidos" compara, por municipio o por vereda,
 cuánta gente va a los eventos y cuántos referidos hay.
 
+Y `36_comunicaciones.sql`:
+- **Notificaciones internas.** La campana del encabezado avisa de nuevas
+  solicitudes de líder, alertas de calidad, solicitudes de titulares y
+  envíos terminados. Los coordinadores y el gerente pueden mandar avisos a
+  su red.
+- **Mensajes a votantes** por SMS, correo o Telegram. Solo llegan a quien
+  autorizó recibirlos. El gerente escribe la plantilla y el candidato la
+  aprueba. Cada mensaje lleva un enlace para darse de baja, y quien lo usa
+  queda excluido de inmediato.
+- **Correo opcional** en el registro público.
+- Proveedores y costos: `docs/comunicaciones.md`.
+
 ## Registro sin conexión
 
 En `/registrar` se puede registrar sin señal (veredas sin cobertura):

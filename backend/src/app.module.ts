@@ -19,6 +19,7 @@ import { RedModule } from './red/red.module.js';
 import { ReportesModule } from './reportes/reportes.module.js';
 import { TableroModule } from './tablero/tablero.module.js';
 import { TerritorioModule } from './territorio/territorio.module.js';
+import { ComunicacionesModule } from './comunicaciones/comunicaciones.module.js';
 import { TitularModule } from './titular/titular.module.js';
 import { UsuariosModule } from './usuarios/usuarios.module.js';
 
@@ -43,6 +44,7 @@ import { UsuariosModule } from './usuarios/usuarios.module.js';
     TableroModule,
     TerritorioModule,
     TitularModule,
+    ComunicacionesModule,
     UsuariosModule,
   ],
   providers: [

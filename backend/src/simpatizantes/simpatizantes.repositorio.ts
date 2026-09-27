@@ -309,4 +309,9 @@ export class SimpatizantesRepositorio {
       )
     `.execute(db);
   }
+
+  /** Correo del registro: la base solo lo acepta en la misma transacción del registro. */
+  async agregarCorreo(db: Kysely<DB>, personaId: string, correo: string): Promise<void> {
+    await sql`select personas.agregar_correo_registro(${personaId}::uuid, ${correo.trim().toLowerCase()})`.execute(db);
+  }
 }

@@ -3187,3 +3187,26 @@ tbody tr:hover td {
   .asistencia-qr { flex-direction: column; align-items: center; text-align: center; }
   .asistencia-qr .form-actions { justify-content: center; flex-wrap: wrap; }
 }
+
+/* Campana de notificaciones */
+.campana { position: relative; }
+.user-actions .campana > button { position: relative; padding: 0 10px; }
+.campana-contador { position: absolute; top: 2px; right: 1px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px; background: var(--critico); color: #fff; font-size: 10.5px; font-weight: 700; line-height: 17px; text-align: center; }
+.campana-panel { position: absolute; right: 0; top: 42px; z-index: 1200; width: min(380px, calc(100vw - 24px)); max-height: 70vh; overflow: auto; background: var(--superficie); border: 1px solid var(--borde); border-radius: var(--radio); box-shadow: var(--sombra-2); }
+.campana-cabecera { position: sticky; top: 0; display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 12px 14px; background: var(--superficie); border-bottom: 1px solid var(--borde); }
+.campana-panel ul { list-style: none; margin: 0; padding: 0; }
+.campana-panel li { border-bottom: 1px solid var(--borde); }
+.campana-panel li:last-child { border-bottom: 0; }
+.user-actions .campana-panel li button { display: grid; gap: 3px; width: 100%; height: auto; padding: 11px 14px; text-align: left; border: 0; border-radius: 0; font-weight: 400; }
+.campana-panel li.no-leida button { background: var(--acento-suave); }
+.campana-panel li strong { color: var(--texto); font-size: 13.5px; }
+.campana-panel li span { color: var(--texto-2); font-size: 13px; line-height: 1.45; }
+.campana-panel li small { color: var(--texto-3); font-size: 11.5px; }
+.campana-panel .empty-inline { margin: 14px; }
+
+/* Comunicaciones */
+.comunicaciones-form { max-width: 720px; margin-top: 4px; }
+.subtitulo-bloque { margin: 28px 0 6px; font-size: 16px; }
+.aviso-canales { padding: 10px 12px; border-radius: var(--radio-sm); background: var(--aviso-suave); color: var(--aviso-texto); }
+.estado-pill.estado-bien { background: var(--bien-suave); color: var(--bien-texto); }
+.estado-pill.estado-aviso { background: var(--aviso-suave); color: var(--aviso-texto); }

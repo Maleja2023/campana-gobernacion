@@ -25,13 +25,14 @@ Internet ─> Cloudflare ┤                                    ├─> Nginx �
 | Dominio | Quién entra | Qué se puede hacer |
 |---|---|---|
 | `app.dominio.co` | Cualquiera, con usuario, contraseña y doble factor | Registro público (`/r/…`), asistencia a eventos (`/e/…`), política (`/privacidad`), derechos del titular (`/mis-datos`) y el trabajo diario de líderes y coordinadores |
-| `admin.dominio.co` | Solo los correos autorizados en Cloudflare Access, y además con usuario, contraseña y doble factor | Todo lo anterior, más **Usuarios**, **Protección de datos** (solicitudes de titulares y bitácora) y **exportes** |
+| `admin.dominio.co` | Solo los correos autorizados en Cloudflare Access, y además con usuario, contraseña y doble factor | Todo lo anterior, más **Usuarios**, **Protección de datos** (solicitudes de titulares y bitácora), **mensajes a votantes** y **exportes** |
 
 Rutas de la API que solo responden en `admin.dominio.co`:
 
 - `/api/usuarios`: crear usuarios y asignar roles;
 - `/api/cumplimiento`: solicitudes de los titulares y sus datos;
 - `/api/auditoria`: bitácora;
+- `/api/comunicaciones`: plantillas y envíos masivos a votantes (los avisos internos y la campana siguen en los dos dominios);
 - `/api/simpatizantes/exportar` y `/api/reportes/exportar`: descargas masivas.
 
 Si un coordinador necesita exportar, agregue su correo a Access (paso 3) y
@@ -46,7 +47,7 @@ En el `server` de `app.dominio.co` (sección 5 de `despliegue-produccion.md`),
 
 ```nginx
 # Panel administrativo: solo por admin.dominio.co (Cloudflare Access).
-location ~ ^/api/(usuarios|cumplimiento|auditoria)(/|$)|^/api/(simpatizantes|reportes)/exportar$ {
+location ~ ^/api/(usuarios|cumplimiento|auditoria|comunicaciones)(/|$)|^/api/(simpatizantes|reportes)/exportar$ {
     default_type application/json;
     return 403 '{"message":"Esta sección solo se abre desde el panel administrativo."}';
 }
@@ -145,6 +146,7 @@ límites; estos frenan el abuso antes de que llegue al servidor. Con
 | Login | `starts_with(http.request.uri.path, "/api/auth/")` | 10 peticiones por minuto |
 | Registro público | `http.request.uri.path eq "/api/registro" and http.request.method eq "POST"` | 5 por minuto |
 | Derechos del titular | `starts_with(http.request.uri.path, "/api/titular/") and http.request.method eq "POST"` | 5 por minuto |
+| Baja de mensajes | `starts_with(http.request.uri.path, "/api/baja/")` | 10 por minuto |
 | Check-in de eventos | `starts_with(http.request.uri.path, "/api/eventos-publico/") and http.request.method eq "POST"` | 30 por minuto (en un evento muchos comparten el wifi) |
 | API en general | `starts_with(http.request.uri.path, "/api/")` | 300 por minuto |
 

@@ -139,6 +139,47 @@ export class VariablesEntorno {
   @IsOptional()
   @MinLength(7)
   RESPONSABLE_TELEFONO?: string;
+
+  /** Mensajes a votantes. Cada canal es opcional: sin configurar, no se ofrece.
+   * "consola" solo escribe en el registro de la API (para pruebas, no en producción). */
+  @IsOptional()
+  @IsIn(['twilio', 'consola'], { message: 'SMS_PROVEEDOR debe ser "twilio" o "consola"' })
+  SMS_PROVEEDOR?: string;
+
+  @IsOptional()
+  @Matches(/^AC[0-9a-f]{32}$/, { message: 'TWILIO_CUENTA_SID empieza por AC y tiene 34 caracteres' })
+  TWILIO_CUENTA_SID?: string;
+
+  @IsOptional()
+  @MinLength(16)
+  TWILIO_TOKEN?: string;
+
+  /** Número remitente (+57...) o Messaging Service SID (MG...). */
+  @IsOptional()
+  @Matches(/^(\+\d{8,15}|MG[0-9a-f]{32})$/, { message: 'SMS_REMITENTE debe ser un número +57... o un Messaging Service SID (MG...)' })
+  SMS_REMITENTE?: string;
+
+  @IsOptional()
+  @IsIn(['resend', 'consola'], { message: 'EMAIL_PROVEEDOR debe ser "resend" o "consola"' })
+  EMAIL_PROVEEDOR?: string;
+
+  @IsOptional()
+  @Matches(/^re_\S{10,}$/, { message: 'RESEND_API_KEY empieza por re_' })
+  RESEND_API_KEY?: string;
+
+  /** Remitente del correo, por ejemplo: Campaña <noticias@dominio.co> */
+  @IsOptional()
+  @MinLength(5)
+  EMAIL_REMITENTE?: string;
+
+  @IsOptional()
+  @Matches(/^\d+:[\w-]{30,}$/, { message: 'TELEGRAM_BOT_TOKEN no tiene el formato 123456:ABC...' })
+  TELEGRAM_BOT_TOKEN?: string;
+
+  /** Canal público de la campaña: @nombre_del_canal o su id numérico (-100...). */
+  @IsOptional()
+  @Matches(/^(@\w{5,}|-100\d+)$/, { message: 'TELEGRAM_CANAL debe ser @nombre_del_canal o -100...' })
+  TELEGRAM_CANAL?: string;
 }
 
 export function validarVariablesEntorno(config: Record<string, unknown>): VariablesEntorno {
@@ -152,6 +193,18 @@ export function validarVariablesEntorno(config: Record<string, unknown>): Variab
   }
   if (instancia.COOKIE_SEGURA === 'true' && !instancia.TURNSTILE_SECRETO) {
     detalles.push('TURNSTILE_SECRETO: es obligatorio en producción (COOKIE_SEGURA=true) para proteger el registro público');
+  }
+  if (instancia.SMS_PROVEEDOR === 'twilio' && !(instancia.TWILIO_CUENTA_SID && instancia.TWILIO_TOKEN && instancia.SMS_REMITENTE)) {
+    detalles.push('SMS_PROVEEDOR=twilio: faltan TWILIO_CUENTA_SID, TWILIO_TOKEN o SMS_REMITENTE');
+  }
+  if (instancia.EMAIL_PROVEEDOR === 'resend' && !(instancia.RESEND_API_KEY && instancia.EMAIL_REMITENTE)) {
+    detalles.push('EMAIL_PROVEEDOR=resend: faltan RESEND_API_KEY o EMAIL_REMITENTE');
+  }
+  if (Boolean(instancia.TELEGRAM_BOT_TOKEN) !== Boolean(instancia.TELEGRAM_CANAL)) {
+    detalles.push('TELEGRAM_BOT_TOKEN y TELEGRAM_CANAL: se configuran los dos o ninguno');
+  }
+  if (instancia.COOKIE_SEGURA === 'true' && (instancia.SMS_PROVEEDOR === 'consola' || instancia.EMAIL_PROVEEDOR === 'consola')) {
+    detalles.push('SMS_PROVEEDOR / EMAIL_PROVEEDOR: "consola" no se permite en producción (COOKIE_SEGURA=true)');
   }
   if (detalles.length > 0) {
     throw new Error(`Configuración inválida al arrancar la API -> ${detalles.join(' | ')}`);

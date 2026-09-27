@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router';
 import { Icono, type NombreIcono } from '../componentes/Icono';
+import { CampanaNotificaciones } from '../componentes/CampanaNotificaciones';
 import { usePendientes } from '../offline/usePendientes';
 import { useSesion } from '../sesion/SesionContext';
 import { nombrePropio } from '../util/nombres';
 
-type Opcion = { etiqueta: string; ruta: string; permiso: string; icono: NombreIcono };
+/** permiso: basta con tener uno de la lista. */
+type Opcion = { etiqueta: string; ruta: string; permiso: string | string[]; icono: NombreIcono };
 
 const SECCIONES: { titulo: string; opciones: Opcion[] }[] = [
   {
@@ -32,6 +34,7 @@ const SECCIONES: { titulo: string; opciones: Opcion[] }[] = [
     opciones: [
       { etiqueta: 'Mi red', ruta: '/red', permiso: 'REPORTE_VER', icono: 'red' },
       { etiqueta: 'Registrar simpatizante', ruta: '/registrar', permiso: 'SIMPATIZANTE_CREAR', icono: 'mas' },
+      { etiqueta: 'Comunicaciones', ruta: '/comunicaciones', permiso: ['MIEMBRO_GESTIONAR', 'COMUNICACION_ENVIAR', 'COMUNICACION_APROBAR'], icono: 'mensaje' },
       { etiqueta: 'Usuarios', ruta: '/usuarios', permiso: 'USUARIO_GESTIONAR', icono: 'usuario' },
       { etiqueta: 'Protección de datos', ruta: '/cumplimiento', permiso: 'SOLICITUD_TITULAR', icono: 'escudo' },
     ],
@@ -88,7 +91,7 @@ export function AppLayout() {
         </div>
 
         {SECCIONES.map((seccion) => {
-          const visibles = seccion.opciones.filter((o) => tienePermiso(o.permiso));
+          const visibles = seccion.opciones.filter((o) => (Array.isArray(o.permiso) ? o.permiso.some(tienePermiso) : tienePermiso(o.permiso)));
           if (visibles.length === 0) return null;
           return (
             <div key={seccion.titulo}>
@@ -142,6 +145,7 @@ export function AppLayout() {
             )}
           </div>
           <div className="user-actions">
+            <CampanaNotificaciones />
             <button type="button" onClick={() => navigate('/cambiar-clave')} title="Cambiar contraseña">
               <Icono nombre="llave" tamano={16} />
               <span className="texto-boton">Cambiar contraseña</span>

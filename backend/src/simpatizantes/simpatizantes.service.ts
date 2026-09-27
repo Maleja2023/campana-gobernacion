@@ -275,8 +275,8 @@ export class SimpatizantesService {
     const telefono = dto.telefono ? this.cifrado.normalizarNumero(dto.telefono) : null;
     const jornada = await this.database.comoUsuario(usuarioId, (trx) => this.repo.jornadaMasReciente(trx));
 
-    const resultado = await this.database.comoUsuario(usuarioId, (trx) =>
-      this.repo.registrar(trx, {
+    const resultado = await this.database.comoUsuario(usuarioId, async (trx) => {
+      const r = await this.repo.registrar(trx, {
         documentoHash: this.cifrado.hash(documento),
         documentoCifrado: this.cifrado.cifrar(documento),
         nombres: dto.nombres.trim(),
@@ -300,8 +300,10 @@ export class SimpatizantesService {
         ip,
         userAgent: userAgent?.slice(0, 300) ?? null,
         capturadoEn,
-      }),
-    );
+      });
+      if (r.resultado === 'REGISTRADO' && r.persona_id && dto.correo) await this.repo.agregarCorreo(trx, r.persona_id, dto.correo);
+      return r;
+    });
 
     if (resultado.resultado === 'DUPLICADO') {
       if (!devolverId) return { resultado: 'RECIBIDO', mensaje: 'Gracias, tu registro fue recibido' };
