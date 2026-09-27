@@ -12,6 +12,7 @@ type Datos = {
   apellidos: string;
   documento: string;
   telefono: string;
+  correo: string;
   municipioId: string;
   municipioNombre: string;
   territorioId: string;
@@ -32,6 +33,7 @@ const inicial: Datos = {
   apellidos: '',
   documento: '',
   telefono: '',
+  correo: '',
   municipioId: '',
   municipioNombre: '',
   territorioId: '',
@@ -207,6 +209,7 @@ export function RegistroPublicoPage() {
         nombres: datos.nombres,
         apellidos: datos.apellidos,
         telefono: datos.telefono || undefined,
+        correo: datos.correo.trim() || undefined,
         territorioId: Number(datos.territorioId),
         puestoId: datos.puestoId ? Number(datos.puestoId) : undefined,
         necesidad: datos.necesidad.trim() || undefined,
@@ -286,8 +289,8 @@ export function RegistroPublicoPage() {
           )}
           {respondido('cedula') && <div className="bubble system">¿Cuál es tu número de cédula?</div>}
           {respondido('cedula') && <div className="bubble person">{datos.documento}</div>}
-          {respondido('celular') && <div className="bubble system">¿Cuál es tu celular? Es opcional.</div>}
-          {respondido('celular') && <div className="bubble person">{datos.telefono || 'Prefiero no darlo'}</div>}
+          {respondido('celular') && <div className="bubble system">¿Cuál es tu celular o tu correo? Son opcionales.</div>}
+          {respondido('celular') && <div className="bubble person">{[datos.telefono, datos.correo.trim()].filter(Boolean).join(' · ') || 'Prefiero no darlos'}</div>}
           {respondido('municipio') && <div className="bubble system">¿En qué municipio vives?</div>}
           {respondido('municipio') && <div className="bubble person">{nombrePropio(datos.municipioNombre)}</div>}
           {respondido('vereda') && <div className="bubble system">¿En qué vereda o barrio?</div>}
@@ -350,8 +353,12 @@ export function RegistroPublicoPage() {
                   onChange={(e) => setDatos({ ...datos, telefono: e.target.value.replace(/\D/g, '') })}
                 />
               </label>
-              <button type="button" className="choice-button" onClick={() => { setDatos({ ...datos, telefono: '' }); avanzar(); }}>
-                Prefiero no darlo
+              <label>
+                Correo <span className="optional">opcional</span>
+                <input type="email" inputMode="email" autoComplete="email" maxLength={120} value={datos.correo} onChange={(e) => setDatos({ ...datos, correo: e.target.value })} />
+              </label>
+              <button type="button" className="choice-button" onClick={() => { setDatos({ ...datos, telefono: '', correo: '' }); avanzar(); }}>
+                Prefiero no darlos
               </button>
             </>
           )}
@@ -527,9 +534,9 @@ export function RegistroPublicoPage() {
                   </dd>
                 </div>
                 <div>
-                  <dt>Celular</dt>
+                  <dt>Celular y correo</dt>
                   <dd>
-                    {datos.telefono || 'No informado'}
+                    {[datos.telefono, datos.correo.trim()].filter(Boolean).join(' · ') || 'No informados'}
                     <button type="button" className="link-button" onClick={() => ir(pasos.indexOf('celular'))}>
                       Editar
                     </button>

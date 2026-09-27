@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import {
+  IsEmail,
   IsISO8601,
   ArrayNotEmpty,
   ArrayUnique,
@@ -60,6 +61,12 @@ export class RegistroSimpatizanteDto {
   @IsString()
   @Matches(/^3\d{9}$/)
   telefono?: string;
+
+  /** Correo opcional, para recibir información si autoriza comunicaciones. */
+  @IsOptional()
+  @IsEmail({}, { message: 'El correo no es válido' })
+  @MaxLength(120)
+  correo?: string;
 
   @Type(() => Number)
   @IsInt()

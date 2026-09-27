@@ -22,6 +22,8 @@ import { DiaDPage, SinAccesoPage } from './paginas/DiaDPage';
 import { MisDatosPage, PrivacidadPage } from './paginas/PrivacidadPage';
 import { CumplimientoPage } from './paginas/CumplimientoPage';
 import { CheckinPage } from './paginas/CheckinPage';
+import { BajaPage } from './paginas/BajaPage';
+import { ComunicacionesPage } from './paginas/ComunicacionesPage';
 import { useSesion } from './sesion/SesionContext';
 
 /** A dónde debe ir el usuario mientras el proceso de acceso no esté LISTO. */
@@ -65,6 +67,11 @@ function Permission({ code, children }: { code: string; children: ReactNode }) {
   return tienePermiso(code) ? <>{children}</> : <Navigate to="/" replace />;
 }
 
+function AlgunPermiso({ codigos, children }: { codigos: string[]; children: ReactNode }) {
+  const { tienePermiso } = useSesion();
+  return codigos.some((c) => tienePermiso(c)) ? <>{children}</> : <Navigate to="/" replace />;
+}
+
 export function App() {
   return <Routes>
     <Route path="/login" element={<LoginPage />} />
@@ -72,6 +79,7 @@ export function App() {
     <Route path="/privacidad" element={<PrivacidadPage />} />
     <Route path="/mis-datos" element={<MisDatosPage />} />
     <Route path="/e/:codigo" element={<CheckinPage />} />
+    <Route path="/baja/:token" element={<BajaPage />} />
     <Route element={<Protected />}>
       <Route path="/cambiar-clave" element={<CambiarClavePage />} />
       <Route path="/configurar-mfa" element={<ConfigurarMfaPage />} />
@@ -90,6 +98,7 @@ export function App() {
         <Route path="registrar" element={<Permission code="SIMPATIZANTE_CREAR"><RegistrarPage /></Permission>} />
         <Route path="usuarios" element={<Permission code="USUARIO_GESTIONAR"><UsuariosPage /></Permission>} />
         <Route path="dia-d" element={<Permission code="E14_CARGAR"><DiaDPage /></Permission>} />
+        <Route path="comunicaciones" element={<AlgunPermiso codigos={['MIEMBRO_GESTIONAR', 'COMUNICACION_ENVIAR', 'COMUNICACION_APROBAR']}><ComunicacionesPage /></AlgunPermiso>} />
         <Route path="cumplimiento" element={<Permission code="SOLICITUD_TITULAR"><CumplimientoPage /></Permission>} />
       </Route>
     </Route>
