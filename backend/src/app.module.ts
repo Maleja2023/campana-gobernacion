@@ -14,7 +14,9 @@ import { DatabaseModule } from './database/database.module.js';
 import { MantenimientoModule } from './mantenimiento/mantenimiento.module.js';
 import { SaludModule } from './salud/salud.module.js';
 import { SimpatizantesModule } from './simpatizantes/simpatizantes.module.js';
+import { NecesidadesModule } from './necesidades/necesidades.module.js';
 import { RedModule } from './red/red.module.js';
+import { ReportesModule } from './reportes/reportes.module.js';
 import { TableroModule } from './tablero/tablero.module.js';
 import { TerritorioModule } from './territorio/territorio.module.js';
 import { UsuariosModule } from './usuarios/usuarios.module.js';
@@ -32,9 +34,11 @@ import { UsuariosModule } from './usuarios/usuarios.module.js';
     AgendaModule,
     CalidadModule,
     MantenimientoModule,
+    NecesidadesModule,
     SaludModule,
     SimpatizantesModule,
     RedModule,
+    ReportesModule,
     TableroModule,
     TerritorioModule,
     UsuariosModule,

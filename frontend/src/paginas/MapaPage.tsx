@@ -3,7 +3,9 @@ import { useQuery } from '@tanstack/react-query';
 import { CircleMarker, GeoJSON, MapContainer, Polygon, Popup, TileLayer, useMap } from 'react-leaflet';
 import type { Layer, LeafletEvent } from 'leaflet';
 import * as L from 'leaflet';
-import { api, type ZonaFeature, type ZonaProperties } from '../api/cliente';
+import { api, type BrechaPuesto, type FiltrosMapa, type MiembroFiltro, type ZonaFeature, type ZonaProperties } from '../api/cliente';
+import { CapaCalor, LEYENDA_CALOR } from '../mapa/CapaCalor';
+import { CATEGORIAS_NECESIDAD } from '../util/categorias';
 import { Cargando, ErrorEstado } from '../componentes/Estados';
 import { Icono } from '../componentes/Icono';
 import { useSesion } from '../sesion/SesionContext';
@@ -14,6 +16,20 @@ type Breadcrumb = { id?: number; nombre: string };
 type SortKey = 'nombre' | 'simpatizantes';
 type Fondo = 'calles' | 'claro' | 'sinfondo';
 type ModoColor = 'municipios' | 'presencia';
+type Capa = 'simpatizantes' | 'calor' | 'necesidades' | 'brecha';
+
+const CAPAS: { clave: Capa; etiqueta: string }[] = [
+  { clave: 'simpatizantes', etiqueta: 'Simpatizantes' },
+  { clave: 'calor', etiqueta: 'Calor' },
+  { clave: 'necesidades', etiqueta: 'Necesidades' },
+  { clave: 'brecha', etiqueta: 'Brecha electoral' },
+];
+
+
+
+// Necesidades: otra tonalidad (ámbar) para no confundirla con la presencia.
+const ESCALA_NECESIDADES = ['#f6f1e7', '#fbe3b4', '#f7c877', '#f0a43a', '#d9801f', '#a85a0c'];
+const FONDO_NEUTRO = '#eef1f5';
 
 const TILE_URL_CALLES = import.meta.env.VITE_TILES_URL ?? 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 // CARTO Positron: proveedor gratuito de teselas "claras", sin necesidad de API key.
@@ -55,6 +71,24 @@ function conSimpatizantes(n: number) {
 /** Texto para una cantidad que puede estar oculta por falta de alcance. */
 function conSimpatizantesOSinAcceso(n: number | null | undefined, sinAcceso: boolean) {
   return sinAcceso ? TEXTO_SIN_ACCESO : conSimpatizantes(Number(n ?? 0));
+}
+
+/** "12 necesidades · principal: Vías" a partir del reparto por categoría. */
+function textoNecesidades(porCategoria: Record<string, number> | undefined) {
+  const entradas = Object.entries(porCategoria ?? {}).sort((a, b) => b[1] - a[1]);
+  const total = entradas.reduce((s, [, n]) => s + n, 0);
+  if (!total) return 'Sin necesidades reportadas';
+  return `${formatNumber(total)} ${total === 1 ? 'necesidad' : 'necesidades'} · principal: ${CATEGORIAS_NECESIDAD[entradas[0][0]] ?? entradas[0][0]}`;
+}
+
+/** Color del puesto según su cobertura: rojo (lejos) a azul (cubierto). */
+function colorCobertura(p: BrechaPuesto) {
+  if (!p.potencial_electoral) return '#7a8699';
+  const c = Number(p.cobertura_pct ?? 0);
+  if (c >= 30) return '#1c5cab';
+  if (c >= 15) return '#3987e5';
+  if (c >= 5) return '#f0a43a';
+  return '#d03b3b';
 }
 
 /** Nivel 0 (sin registros) a 5 (máximo) dentro de la escala de presencia. */
@@ -146,16 +180,21 @@ export function MapaPage() {
   const [modoColor, setModoColor] = useState<ModoColor>('presencia');
   const [pantallaCompleta, setPantallaCompleta] = useState(false);
   const [resaltada, setResaltada] = useState<number | null>(null);
+  const [capa, setCapa] = useState<Capa>('simpatizantes');
+  const [categoria, setCategoria] = useState('');
+  const [filtros, setFiltros] = useState<FiltrosMapa>({});
+  const hayFiltros = Boolean(filtros.miembroId || filtros.desde || filtros.hasta);
   const marcoRef = useRef<HTMLDivElement>(null);
   const capas = useRef(new Map<number, L.Path>());
 
   const enRaiz = padre === undefined;
-  const mapa = useQuery({ queryKey: ['territorio', padre], queryFn: () => api.mapa(padre) });
+  const mapa = useQuery({ queryKey: ['territorio', padre, filtros], queryFn: () => api.mapa(padre, filtros) });
+  const miembrosFiltro = useQuery({ queryKey: ['mapa', 'miembros'], queryFn: api.mapaMiembros });
   const contorno = useQuery({ queryKey: ['contorno'], queryFn: api.contorno });
   // Geometría de los municipios: en la raíz comparte caché con `mapa`. Sirve
   // para aislar la vista de un municipio (máscara y encuadre) aunque sus
   // subdivisiones no lo cubran completo.
-  const municipiosGeo = useQuery({ queryKey: ['territorio', undefined], queryFn: () => api.mapa() });
+  const municipiosGeo = useQuery({ queryKey: ['territorio', undefined, {}], queryFn: () => api.mapa() });
   // Catálogo público con el código DANE de cada municipio, para el color fijo por municipio.
   const municipiosCatalogo = useQuery({ queryKey: ['territorio', 'municipios-catalogo'], queryFn: api.municipios });
   const codigoPorMunicipioId = useMemo(
@@ -175,29 +214,46 @@ export function MapaPage() {
     enabled: puedeVerSimpatizantes && mostrarSimpatizantes && selected !== null,
   });
 
+  // El municipio dentro del cual se navega (aunque se esté más abajo).
+  const municipioActualId = crumbs[1]?.id;
+  const necesidades = useQuery({
+    queryKey: ['mapa', 'necesidades', padre, categoria],
+    queryFn: () => api.mapaNecesidades(padre, categoria || undefined),
+    enabled: capa === 'necesidades',
+  });
+  const calor = useQuery({
+    queryKey: ['mapa', 'calor', municipioActualId, filtros],
+    queryFn: () => api.mapaCalor(municipioActualId, filtros),
+    enabled: capa === 'calor',
+  });
+  const brecha = useQuery({
+    queryKey: ['mapa', 'brecha', municipioActualId, filtros],
+    queryFn: () => api.mapaBrecha(municipioActualId, filtros),
+    enabled: capa === 'brecha',
+  });
+  const necesidadPorZona = useMemo(() => new Map((necesidades.data ?? []).map((n) => [n.territorio_id, n])), [necesidades.data]);
+
+  /** Valor que colorea y ordena cada zona según la capa. */
+  function valorDeZona(f: GeoJSON.Feature<GeoJSON.Geometry, ZonaProperties>): number {
+    if (capa === 'necesidades') return Number(necesidadPorZona.get(Number(f.id))?.total ?? 0);
+    return Number(f.properties.simpatizantes ?? 0);
+  }
+
   const featuresVisibles = features.filter((f) => !f.properties.sinAcceso);
-  const max = Math.max(...featuresVisibles.filter((f) => f.geometry).map((f) => Number(f.properties.simpatizantes ?? 0)), 0);
+  const max = Math.max(...featuresVisibles.filter((f) => f.geometry).map(valorDeZona), 0);
   const step = max / 5 || 1;
   const totalSinAcceso = mapa.data?.totalSinAcceso ?? false;
   const sumaZonas = featuresVisibles.reduce((s, f) => s + Number(f.properties.simpatizantes ?? 0), 0);
   const total = totalSinAcceso ? null : (mapa.data?.totalSimpatizantes ?? sumaZonas);
   // Registrados directamente en el territorio actual, sin vereda ni comuna.
   const sinZona = total === null ? 0 : Math.max(0, total - sumaZonas);
-  const maxFila = Math.max(1, ...featuresVisibles.map((f) => Number(f.properties.simpatizantes ?? 0)));
-  const ordered = useMemo(
-    () =>
-      [...features].sort((a, b) => {
-        const av = sort === 'nombre' ? a.properties.nombre : Number(a.properties.simpatizantes ?? 0);
-        const bv = sort === 'nombre' ? b.properties.nombre : Number(b.properties.simpatizantes ?? 0);
-        const r = typeof av === 'string' ? av.localeCompare(String(bv), 'es') : av - Number(bv);
-        return asc ? r : -r;
-      }),
-    [features, sort, asc],
-  );
-  // El municipio dentro del cual se navega (aunque se esté más abajo).
-  const municipioActualId = crumbs[1]?.id;
+  const maxFila = Math.max(1, ...featuresVisibles.map(valorDeZona));
+  const ordered = [...features].sort((a, b) => {
+    const r = sort === 'nombre' ? a.properties.nombre.localeCompare(b.properties.nombre, 'es') : valorDeZona(a) - valorDeZona(b);
+    return asc ? r : -r;
+  });
   const municipioActual = ((municipiosGeo.data?.features ?? []) as ZonaFeature[]).find((f) => f.id === municipioActualId);
-  const modoMunicipios = enRaiz && modoColor === 'municipios';
+  const modoMunicipios = enRaiz && capa === 'simpatizantes' && modoColor === 'municipios';
 
   const limites = useMemo(() => {
     if (!enRaiz && municipioActual?.geometry) return new L.GeoJSON(municipioActual.geometry as never).getBounds();
@@ -257,8 +313,10 @@ export function MapaPage() {
    * En cualquier otro caso: intensidad de presencia (una sola tonalidad). */
   function colorDeFeature(feature: ZonaFeature) {
     if (feature.properties.sinAcceso) return COLOR_SIN_ACCESO;
+    if (capa === 'calor' || capa === 'brecha') return FONDO_NEUTRO;
+    if (capa === 'necesidades') return ESCALA_NECESIDADES[nivelDeValor(valorDeZona(feature), step)];
     if (modoMunicipios) return colorMunicipio(codigoPorMunicipioId.get(feature.id));
-    return ESCALA_PRESENCIA[nivelDeValor(Number(feature.properties.simpatizantes ?? 0), step)];
+    return ESCALA_PRESENCIA[nivelDeValor(valorDeZona(feature), step)];
   }
 
   function style(feature?: GeoJSON.Feature<GeoJSON.Geometry, ZonaProperties>) {
@@ -266,7 +324,7 @@ export function MapaPage() {
       fillColor: feature ? colorDeFeature(feature as ZonaFeature) : ESCALA_PRESENCIA[0],
       color: '#ffffff',
       weight: enRaiz ? 1.3 : 0.9,
-      fillOpacity: 0.88,
+      fillOpacity: capa === 'calor' || capa === 'brecha' ? 0.45 : 0.88,
     };
   }
 
@@ -274,7 +332,7 @@ export function MapaPage() {
     capas.current.set(feature.id, layer as L.Path);
     const sinAcceso = feature.properties.sinAcceso;
     const nombre = nombrePropio(feature.properties.nombre);
-    const texto = conSimpatizantesOSinAcceso(feature.properties.simpatizantes, sinAcceso);
+    const texto = capa === 'necesidades' && !sinAcceso ? textoNecesidades(necesidadPorZona.get(feature.id)?.por_categoria) : conSimpatizantesOSinAcceso(feature.properties.simpatizantes, sinAcceso);
     const pista = !sinAcceso && (feature.properties.subdivisiones ?? 0) > 0 ? '<br><span style="opacity:.75">Clic para ver sus zonas</span>' : '';
     if (enRaiz) {
       layer.bindTooltip(nombre, { permanent: true, direction: 'center', className: 'municipio-label' });
@@ -328,6 +386,7 @@ export function MapaPage() {
             {enRaiz
               ? 'Simpatizantes por municipio. Haz clic en un municipio para ver sus veredas, comunas y corregimientos.'
               : `Simpatizantes por zona en ${nombrePropio(actual.nombre)}.`}
+            {hayFiltros && capa !== 'necesidades' && <strong className="filtro-activo"> Con filtros aplicados.</strong>}
           </p>
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -342,6 +401,8 @@ export function MapaPage() {
         </div>
       </div>
 
+      <FiltrosBarra miembros={miembrosFiltro.data ?? []} filtros={filtros} onCambio={setFiltros} capa={capa} />
+
       {(mapa.isPending || contorno.isPending) && <Cargando texto="Cargando cartografía…" />}
       {mapa.isError && <ErrorEstado mensaje={mapa.error.message} reintentar={() => void mapa.refetch()} />}
       {mapa.data && contorno.data && (
@@ -353,13 +414,38 @@ export function MapaPage() {
               {enRaiz ? <Mascara geometry={contorno.data.geojson} /> : municipioActual?.geometry && <Mascara geometry={municipioActual.geometry} />}
               <Encuadre limites={limites} clave={`${enRaiz ? 'raiz' : municipioActualId}-${limites.isValid()}`} />
               <GeoJSON
-                key={`${padre ?? 'root'}-${max}-${modoColor}-${codigoPorMunicipioId.size}`}
+                key={`${padre ?? 'root'}-${max}-${modoColor}-${capa}-${categoria}-${necesidades.dataUpdatedAt}-${mapa.dataUpdatedAt}-${codigoPorMunicipioId.size}`}
                 data={conPoligono as never}
                 style={style}
                 onEachFeature={each as never}
                 eventHandlers={{ remove: () => capas.current.clear() }}
               />
+              {capa === 'calor' && calor.data && <CapaCalor puntos={calor.data} />}
+              {capa === 'brecha' &&
+                brecha.data?.map(
+                  (p) =>
+                    p.lat !== null &&
+                    p.lon !== null && (
+                      <CircleMarker
+                        key={p.puesto_id}
+                        center={[p.lat, p.lon]}
+                        radius={p.potencial_electoral ? Math.max(5, Math.min(18, 4 + Math.sqrt(p.potencial_electoral) / 6)) : 6}
+                        pathOptions={{ color: '#ffffff', weight: 1.5, fillColor: colorCobertura(p), fillOpacity: 0.95 }}
+                      >
+                        <Popup>
+                          <strong>{nombrePropio(p.puesto)}</strong>
+                          <br />
+                          {nombrePropio(p.municipio)} · {conSimpatizantes(p.simpatizantes)}
+                          <br />
+                          {p.potencial_electoral
+                            ? `Potencial: ${formatNumber(p.potencial_electoral)} · cobertura ${Number(p.cobertura_pct ?? 0).toLocaleString('es-CO')} % · faltan ${formatNumber(Math.max(0, p.potencial_electoral - p.simpatizantes))}`
+                            : 'Sin potencial electoral cargado'}
+                        </Popup>
+                      </CircleMarker>
+                    ),
+                )}
               {puestosVisibles &&
+                capa !== 'brecha' &&
                 puestos.data?.map(
                   (p) =>
                     p.lat !== null &&
@@ -430,7 +516,27 @@ export function MapaPage() {
                 )}
               </div>
             </div>
-            {enRaiz && (
+            <div className="capa-selector" role="group" aria-label="Capa del mapa">
+              {CAPAS.map((c) => (
+                <button key={c.clave} type="button" className={capa === c.clave ? 'selected' : ''} aria-pressed={capa === c.clave} onClick={() => setCapa(c.clave)}>
+                  {c.etiqueta}
+                </button>
+              ))}
+            </div>
+            {capa === 'necesidades' && (
+              <label className="capa-categoria">
+                Categoría
+                <select value={categoria} onChange={(e) => setCategoria(e.target.value)}>
+                  <option value="">Todas</option>
+                  {Object.entries(CATEGORIAS_NECESIDAD).map(([codigo, nombre]) => (
+                    <option key={codigo} value={codigo}>
+                      {nombre}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            {enRaiz && capa === 'simpatizantes' && (
               <div className="mode-selector" role="group" aria-label="Color del mapa">
                 <button type="button" className={modoColor === 'presencia' ? 'selected' : ''} onClick={() => setModoColor('presencia')}>
                   Presencia
@@ -440,7 +546,8 @@ export function MapaPage() {
                 </button>
               </div>
             )}
-            {municipioId !== undefined && (
+            {capa === 'brecha' && <BrechaPanel query={brecha} />}
+            {municipioId !== undefined && capa !== 'brecha' && (
               <label className="toggle-row">
                 <span>
                   <strong>Puestos de votación</strong>
@@ -449,6 +556,7 @@ export function MapaPage() {
                 <input type="checkbox" checked={puestosVisibles} onChange={(e) => setPuestosVisibles(e.target.checked)} />
               </label>
             )}
+            {capa !== 'brecha' && (
             <div className="table-wrap">
               <table>
                 <caption className="sr-only">Zonas territoriales y simpatizantes</caption>
@@ -473,13 +581,13 @@ export function MapaPage() {
                           setAsc(sort === 'simpatizantes' ? !asc : false);
                         }}
                       >
-                        Simpatizantes <Icono nombre={sort === 'simpatizantes' ? (asc ? 'subir' : 'flechaAbajo') : 'ordenar'} tamano={13} />
+                        {capa === 'necesidades' ? 'Necesidades' : 'Simpatizantes'} <Icono nombre={sort === 'simpatizantes' ? (asc ? 'subir' : 'flechaAbajo') : 'ordenar'} tamano={13} />
                       </button>
                     </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {sinZona > 0 && (
+                  {sinZona > 0 && capa !== 'necesidades' && (
                     <tr className="no-map-row">
                       <td>
                         Sin zona asignada
@@ -523,8 +631,8 @@ export function MapaPage() {
                             TEXTO_SIN_ACCESO
                           ) : (
                             <span className="barra-celda">
-                              <i style={{ width: `${(Number(p.simpatizantes ?? 0) / maxFila) * 56}px` }} />
-                              <strong style={{ minWidth: 28 }}>{formatNumber(p.simpatizantes)}</strong>
+                              <i className={capa === 'necesidades' ? 'barra-necesidades' : undefined} style={{ width: `${(valorDeZona(f) / maxFila) * 56}px` }} />
+                              <strong style={{ minWidth: 28 }}>{formatNumber(valorDeZona(f))}</strong>
                             </span>
                           )}
                         </td>
@@ -534,8 +642,47 @@ export function MapaPage() {
                 </tbody>
               </table>
             </div>
+            )}
 
-            {modoMunicipios ? (
+            {capa === 'calor' ? (
+              <div className="legend">
+                <span>Concentración de registros</span>
+                <div className="legend-swatches">
+                  {LEYENDA_CALOR.map((c) => (
+                    <i key={c} style={{ backgroundColor: c }} />
+                  ))}
+                </div>
+                <small>
+                  <span>Pocos</span>
+                  <span>Muchos</span>
+                </small>
+                <small className="helper">Sin GPS, cada registro cuenta en su vereda o barrio.</small>
+              </div>
+            ) : capa === 'necesidades' ? (
+              <div className="legend">
+                <span>Necesidades reportadas{categoria ? ` · ${CATEGORIAS_NECESIDAD[categoria]}` : ''}</span>
+                <div className="legend-swatches">
+                  {ESCALA_NECESIDADES.map((c) => (
+                    <i key={c} style={{ backgroundColor: c }} />
+                  ))}
+                </div>
+                <small>
+                  <span>Ninguna</span>
+                  <span>{max > 0 ? `${formatNumber(max)} o más` : 'Más'}</span>
+                </small>
+              </div>
+            ) : capa === 'brecha' ? (
+              <div className="legend">
+                <span>Cobertura del puesto (simpatizantes / potencial)</span>
+                <ul className="leyenda-cobertura">
+                  <li><i style={{ background: '#d03b3b' }} /> Menos de 5 %</li>
+                  <li><i style={{ background: '#f0a43a' }} /> 5 a 15 %</li>
+                  <li><i style={{ background: '#3987e5' }} /> 15 a 30 %</li>
+                  <li><i style={{ background: '#1c5cab' }} /> 30 % o más</li>
+                  <li><i style={{ background: '#7a8699' }} /> Sin potencial cargado</li>
+                </ul>
+              </div>
+            ) : modoMunicipios ? (
               <div className="legend legend-municipios">
                 <span>Municipios</span>
                 <ul className="legend-municipios-list">
@@ -617,4 +764,140 @@ function ControlesZoom() {
     };
   }, [map]);
   return null;
+}
+
+function hoyMenos(dias: number) {
+  const d = new Date();
+  d.setDate(d.getDate() - dias);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+const CARGOS_FILTRO: [string, string][] = [
+  ['COORDINADOR', 'Coordinadores'],
+  ['LIDER', 'Líderes'],
+  ['SUBLIDER', 'Sublíderes'],
+];
+
+/** Filtros por red (líder o coordinador, con toda su red) y rango de fechas de captura. */
+function FiltrosBarra({ miembros, filtros, onCambio, capa }: { miembros: MiembroFiltro[]; filtros: FiltrosMapa; onCambio: (f: FiltrosMapa) => void; capa: Capa }) {
+  const cambiar = (c: Partial<FiltrosMapa>) => onCambio({ ...filtros, ...c });
+  const rapido = (dias: number | null) => onCambio({ ...filtros, desde: dias === null ? undefined : hoyMenos(dias - 1), hasta: dias === null ? undefined : hoyMenos(0) });
+  const activos = Boolean(filtros.miembroId || filtros.desde || filtros.hasta);
+  return (
+    <section className="filtros-mapa" aria-label="Filtros del mapa">
+      <label>
+        Red de
+        <select value={filtros.miembroId ?? ''} onChange={(e) => cambiar({ miembroId: e.target.value || undefined })}>
+          <option value="">Toda la red visible</option>
+          {CARGOS_FILTRO.map(([cargo, etiqueta]) => {
+            const lista = miembros.filter((m) => m.cargo_codigo === cargo);
+            return (
+              lista.length > 0 && (
+                <optgroup key={cargo} label={etiqueta}>
+                  {lista.map((m) => (
+                    <option key={m.miembro_id} value={m.miembro_id}>
+                      {nombrePropio(m.nombre)}
+                      {m.municipio ? ` · ${nombrePropio(m.municipio)}` : ''}
+                    </option>
+                  ))}
+                </optgroup>
+              )
+            );
+          })}
+        </select>
+      </label>
+      <label>
+        Desde
+        <input type="date" value={filtros.desde ?? ''} max={filtros.hasta} onChange={(e) => cambiar({ desde: e.target.value || undefined })} />
+      </label>
+      <label>
+        Hasta
+        <input type="date" value={filtros.hasta ?? ''} min={filtros.desde} onChange={(e) => cambiar({ hasta: e.target.value || undefined })} />
+      </label>
+      <div className="segmented" role="group" aria-label="Periodo rápido">
+        <button type="button" onClick={() => rapido(7)}>7 días</button>
+        <button type="button" onClick={() => rapido(30)}>30 días</button>
+        <button type="button" onClick={() => rapido(null)}>Todo</button>
+      </div>
+      {activos && (
+        <button type="button" className="link-button" onClick={() => onCambio({})}>
+          Quitar filtros
+        </button>
+      )}
+      {capa === 'necesidades' && activos && <small className="helper">Los filtros de red y fechas no aplican a la capa de necesidades.</small>}
+    </section>
+  );
+}
+
+/** Tabla de puestos ordenada por lo que falta para cubrir su potencial. */
+function BrechaPanel({ query }: { query: { isPending: boolean; isError: boolean; error: Error | null; data?: BrechaPuesto[] } }) {
+  if (query.isPending) return <Cargando texto="Calculando brecha…" />;
+  if (query.isError) return <ErrorEstado mensaje={query.error?.message ?? 'No fue posible calcular la brecha.'} />;
+  const puestos = query.data ?? [];
+  const conPotencial = puestos.filter((p) => p.potencial_electoral);
+  const ordenados = [...conPotencial].sort((a, b) => b.potencial_electoral! - b.simpatizantes - (a.potencial_electoral! - a.simpatizantes));
+  const potencial = conPotencial.reduce((s, p) => s + p.potencial_electoral!, 0);
+  const simpatizantes = puestos.reduce((s, p) => s + p.simpatizantes, 0);
+  // La cobertura solo se calcula sobre los puestos que tienen potencial cargado.
+  const simpatizantesConPotencial = conPotencial.reduce((s, p) => s + p.simpatizantes, 0);
+  const sinPotencial = puestos.length - conPotencial.length;
+  return (
+    <div className="brecha-panel">
+      {conPotencial.length === 0 ? (
+        <div className="aviso-datos">
+          <strong>Falta cargar el potencial electoral</strong>
+          <span>
+            Los {formatNumber(puestos.length)} puestos ya tienen {conSimpatizantes(simpatizantes)}, pero ninguno tiene su potencial de votantes. Cárguelo con
+            el archivo de la Registraduría (ver docs/mapas-datos.md) y aquí aparecerá la brecha de cada puesto.
+          </span>
+        </div>
+      ) : (
+        <>
+          <p className="brecha-resumen">
+            <strong>{potencial ? ((100 * simpatizantesConPotencial) / potencial).toLocaleString('es-CO', { maximumFractionDigits: 1 }) : 0} %</strong> de cobertura:{' '}
+            {formatNumber(simpatizantesConPotencial)} simpatizantes de {formatNumber(potencial)} votantes potenciales.
+            {sinPotencial > 0 && (
+              <small>
+                {' '}
+                {formatNumber(sinPotencial)} {sinPotencial === 1 ? 'puesto no tiene' : 'puestos no tienen'} potencial cargado (ver docs/mapas-datos.md).
+              </small>
+            )}
+          </p>
+          <div className="table-wrap">
+            <table>
+              <caption className="sr-only">Brecha electoral por puesto</caption>
+              <thead>
+                <tr>
+                  <th>Puesto</th>
+                  <th>Cobertura</th>
+                  <th>Faltan</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ordenados.slice(0, 60).map((p) => (
+                  <tr key={p.puesto_id}>
+                    <td>
+                      {nombrePropio(p.puesto)}
+                      <small>
+                        {nombrePropio(p.municipio)} · {formatNumber(p.simpatizantes)} de {formatNumber(p.potencial_electoral)}
+                      </small>
+                    </td>
+                    <td>
+                      <span className="barra-celda">
+                        <i style={{ width: `${Math.min(56, Number(p.cobertura_pct ?? 0) * 0.56)}px`, background: colorCobertura(p) }} />
+                        <strong>{Number(p.cobertura_pct ?? 0).toLocaleString('es-CO')} %</strong>
+                      </span>
+                    </td>
+                    <td>
+                      <strong>{formatNumber(Math.max(0, p.potencial_electoral! - p.simpatizantes))}</strong>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </div>
+  );
 }

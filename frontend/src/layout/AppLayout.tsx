@@ -12,6 +12,7 @@ const SECCIONES: { titulo: string; opciones: Opcion[] }[] = [
     titulo: 'Seguimiento',
     opciones: [
       { etiqueta: 'Tablero', ruta: '/tablero', permiso: 'REPORTE_VER', icono: 'tablero' },
+      { etiqueta: 'Reportes', ruta: '/reportes', permiso: 'REPORTE_VER', icono: 'reporte' },
       { etiqueta: 'Mapa territorial', ruta: '/mapa', permiso: 'MAPA_VER', icono: 'mapa' },
       { etiqueta: 'Simpatizantes', ruta: '/simpatizantes', permiso: 'SIMPATIZANTE_VER', icono: 'personas' },
       { etiqueta: 'Alertas de calidad', ruta: '/alertas', permiso: 'ALERTA_GESTIONAR', icono: 'alerta' },
@@ -21,6 +22,7 @@ const SECCIONES: { titulo: string; opciones: Opcion[] }[] = [
     titulo: 'Territorio',
     opciones: [
       { etiqueta: 'Agenda territorial', ruta: '/agenda', permiso: 'AGENDA_VER', icono: 'agenda' },
+      { etiqueta: 'Voz del territorio', ruta: '/necesidades', permiso: 'REPORTE_VER', icono: 'chispa' },
       { etiqueta: 'Reportar necesidad', ruta: '/reportar', permiso: 'REPORTE_COMUNITARIO', icono: 'necesidad' },
       { etiqueta: 'Día de elecciones', ruta: '/dia-d', permiso: 'E14_CARGAR', icono: 'calendario' },
     ],

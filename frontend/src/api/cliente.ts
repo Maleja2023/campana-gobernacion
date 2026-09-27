@@ -132,6 +132,30 @@ export type ZonaProperties = {
   subdivisiones: number | null;
   sinAcceso: boolean;
 };
+export type FiltrosMapa = { miembroId?: string; desde?: string; hasta?: string };
+export type PuntoCalor = { lat: number; lon: number; peso: number };
+export type NecesidadZona = { territorio_id: number; total: number; por_categoria: Record<string, number> };
+export type BrechaPuesto = {
+  puesto_id: number;
+  puesto: string;
+  municipio_id: number;
+  municipio: string;
+  potencial_electoral: number | null;
+  simpatizantes: number;
+  cobertura_pct: string | number | null;
+  lat: number | null;
+  lon: number | null;
+};
+export type MiembroFiltro = { miembro_id: string; nombre: string; cargo_codigo: string; municipio: string | null };
+
+/** Cadena de consulta con solo los valores definidos (`?a=1&b=2` o ''). */
+export function consulta(valores: Record<string, string | number | undefined | null>): string {
+  const partes = Object.entries(valores)
+    .filter(([, v]) => v !== undefined && v !== null && v !== '')
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`);
+  return partes.length ? `?${partes.join('&')}` : '';
+}
+
 export type ZonaFeature = GeoJSON.Feature<GeoJSON.Geometry, ZonaProperties> & { id: number };
 export type ZonaCollection = GeoJSON.FeatureCollection<GeoJSON.Geometry, ZonaProperties> & {
   features: ZonaFeature[];
@@ -196,7 +220,129 @@ export type AlertaDetalle = {
   miembros: { id: string; nombres: string; apellidos: string; cargo_codigo: string; zona: string | null; referido_por: string | null }[];
 };
 export type Puesto = { id: number; nombre: string; direccion: string | null; lon: number | null; lat: number | null; simpatizantes?: number | null; potencial_electoral?: number | null; cobertura_pct?: number | null };
-export type Indicadores = { simpatizantes_activos: number | null; registros_hoy: number | null; registros_semana: number | null; miembros_activos: number | null; alertas_abiertas: number | null; necesidades_reportadas: number | null };
+export type Indicadores = {
+  simpatizantes_activos: number | null;
+  registros_hoy: number | null;
+  registros_ayer: number | null;
+  registros_semana: number | null;
+  registros_semana_anterior: number | null;
+  registros_mes: number | null;
+  meta: number | null;
+  avance_pct: string | number | null;
+  miembros_activos: number | null;
+  lideres_con_registros_semana: number | null;
+  alertas_abiertas: number | null;
+  necesidades_reportadas: number | null;
+};
+export type EstadoClasificacion = {
+  iaDisponible: boolean;
+  modelo: string;
+  total: number;
+  con_categoria_origen: number;
+  clasificadas_modelo: number;
+  clasificadas_reglas: number;
+  pendientes_modelo: number;
+};
+export type NecesidadFila = {
+  necesidad_id: string;
+  descripcion: string;
+  territorio: string;
+  tipo_territorio: string;
+  municipio: string | null;
+  categoria: string | null;
+  fuente_categoria: 'ORIGEN' | 'IA' | 'REGLAS' | null;
+  confianza: string | null;
+  origen: string;
+  prioridad: string | null;
+  reportada_en: string;
+};
+export type ResumenNecesidad = { municipio_id: number | null; municipio: string | null; categoria: string; cantidad: number };
+export type InformeNecesidades = {
+  iaDisponible: boolean;
+  generando: boolean;
+  error: string | null;
+  informe: { id: number; generado_en: string; modelo: string; total_necesidades: number; contenido: string; generado_por: string } | null;
+};
+export type FiltrosReporte = { municipioId?: number; miembroId?: string; desde?: string; hasta?: string };
+export type TipoReporte = 'MUNICIPIOS' | 'LIDERES' | 'PUESTOS' | 'PROYECCION' | 'CALIDAD';
+export type FilaCalidad = {
+  miembro_id: string;
+  nombre: string;
+  cargo_codigo: string;
+  municipio: string | null;
+  registros: number;
+  con_telefono_pct: string | null;
+  con_puesto_pct: string | null;
+  con_zona_pct: string | null;
+  intentos_duplicado: number;
+  personas_en_alertas: number;
+  retirados: number;
+  completitud: string;
+  confiabilidad: string;
+  puntaje: number | null;
+  nivel: 'ALTA' | 'MEDIA' | 'BAJA' | 'SIN_DATOS';
+};
+export type FilaReporteMunicipio = {
+  municipio_id: number;
+  municipio: string;
+  simpatizantes: number;
+  en_rango: number;
+  ultimos_7_dias: number;
+  meta: number | null;
+  avance_pct: string | null;
+  lideres: number;
+  lideres_activos_semana: number;
+  necesidades: number;
+  puestos: number;
+  potencial_electoral: number | null;
+  cobertura_pct: string | null;
+};
+export type FilaReporteLider = {
+  miembro_id: string;
+  nombre: string;
+  cargo_codigo: string;
+  superior: string | null;
+  municipio: string | null;
+  activo: boolean;
+  propios: number;
+  red: number;
+  en_rango: number;
+  ultimos_7_dias: number;
+  ultimos_30_dias: number;
+  ultimo_registro: string | null;
+  meta: number | null;
+  avance_pct: string | null;
+  intentos_duplicado: number;
+  alertas_abiertas: number;
+};
+export type FilaReportePuesto = BrechaPuesto & { faltan: number | null };
+export type EstadoProyeccion = 'CUMPLIDA' | 'EN_CAMINO' | 'EN_RIESGO' | 'NO_ALCANZA' | 'VENCIDA';
+export type FilaProyeccion = {
+  tipo: 'MIEMBRO' | 'TERRITORIO';
+  referencia: string;
+  nombre: string;
+  meta: number;
+  registrados: number;
+  fecha_inicio: string;
+  fecha_limite: string;
+  dias_restantes: number;
+  ritmo_diario: string;
+  ritmo_necesario: string | null;
+  proyectado: number;
+  proyectado_pct: string;
+  fecha_estimada: string | null;
+  estado: EstadoProyeccion;
+};
+export type FilaBitacora = {
+  id: number;
+  exportado_en: string;
+  usuario: string;
+  recurso: string;
+  motivo: string;
+  formato: string;
+  cantidad_registros: number;
+  territorios: string | null;
+};
 export type RegistroDiario = { fecha: string | null; registros: number | null };
 export type LiderRanking = { miembro_id: string | null; nombre: string | null; cargo_codigo: string | null; activos: number | null; ultimos_7_dias: number | null; ultimo_registro: string | null; intentos_duplicado: number | null };
 export type MetaMiembro = { miembro_id: string | null; nombre: string | null; meta: number | null; registrados: number | null; porcentaje: number | null; fecha_limite: string | null };
@@ -266,7 +412,14 @@ export const api = {
   mfaVerificar: (codigo: string) => cliente.post<{ estado: EstadoSesion }>('/auth/mfa/verificar', { codigo }),
   mfaRecuperacion: (codigo: string) => cliente.post<{ mensaje: string }>('/auth/mfa/recuperacion', { codigo }),
   mfaCodigos: (codigo: string) => cliente.post<MfaConfirmacion>('/auth/mfa/codigos', { codigo }),
-  mapa: (padre?: number) => cliente.get<ZonaCollection>(padre ? `/territorio/mapa?padre=${padre}` : '/territorio/mapa'),
+  mapa: (padre?: number, filtros: FiltrosMapa = {}) => cliente.get<ZonaCollection>(`/territorio/mapa${consulta({ padre, ...filtros })}`),
+  mapaCalor: (municipioId: number | undefined, filtros: FiltrosMapa = {}) =>
+    cliente.get<PuntoCalor[]>(`/territorio/mapa/calor${consulta({ municipioId, ...filtros })}`),
+  mapaNecesidades: (padre: number | undefined, categoria?: string) =>
+    cliente.get<NecesidadZona[]>(`/territorio/mapa/necesidades${consulta({ padre, categoria })}`),
+  mapaBrecha: (municipioId: number | undefined, filtros: FiltrosMapa = {}) =>
+    cliente.get<BrechaPuesto[]>(`/territorio/mapa/brecha${consulta({ municipioId, ...filtros })}`),
+  mapaMiembros: () => cliente.get<MiembroFiltro[]>('/territorio/mapa/miembros'),
   puestos: (municipioId: number) => cliente.get<Puesto[]>(`/tablero/puestos?municipioId=${municipioId}`),
   /** Catálogo público de puestos de un municipio (formularios de registro; no exige sesión). */
   puestosCatalogo: (municipioId: number) => cliente.get<Puesto[]>(`/territorio/puestos?municipioId=${municipioId}`),
@@ -293,6 +446,21 @@ export const api = {
   lideresRegistro: () => cliente.get<LiderRegistro[]>('/simpatizantes/lideres-registro'),
   configuracionRegistro: () => cliente.get<{ captchaSiteKey: string | null }>('/registro/configuracion'),
   documentoSimpatizante: (personaId: string) => cliente.get<DocumentoDescifrado>(`/simpatizantes/${personaId}/documento`),
+  necesidadesEstado: () => cliente.get<EstadoClasificacion>('/necesidades/clasificacion'),
+  necesidadesClasificar: () => cliente.post<{ modelo: string; clasificadas: number; fallidas: number }>('/necesidades/clasificar', {}),
+  necesidadesListado: (f: { municipioId?: number; categoria?: string; pagina?: number }) =>
+    cliente.get<{ datos: NecesidadFila[]; total: number; pagina: number; porPagina: number }>(`/necesidades${consulta({ ...f, porPagina: 30 })}`),
+  necesidadesResumen: () => cliente.get<ResumenNecesidad[]>('/necesidades/resumen'),
+  necesidadCorregir: (id: string, categoria: string) => cliente.patch<{ id: string; categoria: string }>(`/necesidades/${id}/categoria`, { categoria }),
+  necesidadesInforme: (municipioId: number) => cliente.get<InformeNecesidades>(`/necesidades/informes/${municipioId}`),
+  necesidadesGenerarInforme: (municipioId: number) => cliente.post<InformeNecesidades>(`/necesidades/informes/${municipioId}`, {}),
+  reporteMunicipios: (f: FiltrosReporte) => cliente.get<FilaReporteMunicipio[]>(`/reportes/municipios${consulta(f)}`),
+  reporteLideres: (f: FiltrosReporte) => cliente.get<FilaReporteLider[]>(`/reportes/lideres${consulta(f)}`),
+  reportePuestos: (f: FiltrosReporte) => cliente.get<FilaReportePuesto[]>(`/reportes/puestos${consulta(f)}`),
+  reporteCalidad: (f: FiltrosReporte) => cliente.get<FilaCalidad[]>(`/reportes/calidad${consulta(f)}`),
+  proyeccionMetas: () => cliente.get<FilaProyeccion[]>('/reportes/proyeccion'),
+  exportarReporte: (body: FiltrosReporte & { reporte: TipoReporte; motivo: string }) => cliente.archivo('/reportes/exportar', body),
+  bitacoraExportaciones: () => cliente.get<FilaBitacora[]>('/reportes/exportaciones?limite=200'),
   exportarSimpatizantes: (body: { motivo: string; territorioId?: number; municipioId?: number; estado?: string; texto?: string }) =>
     cliente.archivo('/simpatizantes/exportar', body),
   alertas: (estado?: string) => cliente.get<Alerta[]>(`/calidad/alertas${estado ? `?estado=${estado}` : ''}`),

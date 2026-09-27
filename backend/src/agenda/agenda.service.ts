@@ -97,7 +97,8 @@ export class AgendaService {
       await this.repo.crearReporte(trx, id, {
         territorioId: dto.territorioId,
         descripcion: dto.descripcion.trim(),
-        categoria: dto.categoria,
+        // Sin categoría: la clasifica la IA (o las reglas) en la próxima corrida.
+        categoria: dto.categoria ?? null,
         reportadoPor: u.id,
         prioridad: dto.prioridad,
       });
