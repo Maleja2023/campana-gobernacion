@@ -137,7 +137,7 @@ function MiEnlace() {
   });
   const [copiado, setCopiado] = useState<string>();
   const [error, setError] = useState('');
-  const yo = arbol.data?.[0];
+  const yo = arbol.data?.find((m) => m.es_propio);
   const miMeta = metas.data?.miembros.find((m) => m.miembro_id === yo?.miembro_id);
   const totalReferidos = links.data?.reduce((s, l) => s + l.simpatizantes, 0) ?? 0;
   const nombre = nombrePropio(`${usuario?.nombres ?? ''} ${usuario?.apellidos ?? ''}`);
@@ -434,7 +434,6 @@ function Arbol({ puedeGestionar }: { puedeGestionar: boolean }) {
             <RamaRed
               key={n.miembro_id}
               nodo={n}
-              raiz
               abiertos={visibles}
               alternar={alternar}
               metas={metaPorMiembro}
@@ -452,7 +451,6 @@ function Arbol({ puedeGestionar }: { puedeGestionar: boolean }) {
 
 function RamaRed({
   nodo,
-  raiz = false,
   abiertos,
   alternar,
   metas,
@@ -462,8 +460,6 @@ function RamaRed({
   actualizar,
 }: {
   nodo: Nodo;
-  /** La persona que abre la página (o la cima de su alcance): no se gestiona a sí misma aquí. */
-  raiz?: boolean;
   abiertos: Set<string>;
   alternar: (id: string) => void;
   metas: Map<string | null, MetaMiembro>;
@@ -506,7 +502,7 @@ function RamaRed({
           <strong>{nodo.totalRed.toLocaleString('es-CO')}</strong>
           <small>{nodo.hijos.length > 0 ? `en su red · ${(nodo.activos ?? 0).toLocaleString('es-CO')} propios` : 'referidos'}</small>
         </div>
-        {puedeGestionar && !raiz && nodo.cargo_codigo !== 'GERENTE' && (
+        {puedeGestionar && !nodo.es_propio && nodo.cargo_codigo !== 'GERENTE' && (
           <details className="nodo-menu">
             <summary aria-label={`Opciones de ${nombrePropio(nodo.nombre)}`}>···</summary>
             <div>
@@ -818,6 +814,8 @@ function CrearMiembroForm({ miembros, onDone }: { miembros: MiembroRed[]; onDone
   const [telefono, setTelefono] = useState('');
   const [cargo, setCargo] = useState<'COORDINADOR' | 'LIDER' | 'SUBLIDER'>('LIDER');
   const [superiorId, setSuperiorId] = useState('');
+  const [municipioId, setMunicipioId] = useState('');
+  const municipios = useQuery({ queryKey: ['municipios'], queryFn: api.municipios, enabled: cargo === 'COORDINADOR' });
   const [error, setError] = useState('');
   const [exito, setExito] = useState<{ codigoLink: string; urlLink: string }>();
   const [guardando, setGuardando] = useState(false);
@@ -827,7 +825,15 @@ function CrearMiembroForm({ miembros, onDone }: { miembros: MiembroRed[]; onDone
     setError('');
     setGuardando(true);
     try {
-      const res = await api.crearMiembro({ documento, nombres: nombres.trim(), apellidos: apellidos.trim(), telefono: telefono || undefined, cargo, superiorId });
+      const res = await api.crearMiembro({
+        documento,
+        nombres: nombres.trim(),
+        apellidos: apellidos.trim(),
+        telefono: telefono || undefined,
+        cargo,
+        superiorId,
+        territorioIds: cargo === 'COORDINADOR' ? [Number(municipioId)] : undefined,
+      });
       setExito({ codigoLink: res.codigoLink, urlLink: res.urlLink });
       await onDone();
     } catch (cause) {
@@ -892,6 +898,22 @@ function CrearMiembroForm({ miembros, onDone }: { miembros: MiembroRed[]; onDone
           </select>
         </label>
       </div>
+      {cargo === 'COORDINADOR' ? (
+        <label>
+          Municipio del coordinador
+          <select value={municipioId} onChange={(e) => setMunicipioId(e.target.value)} required>
+            <option value="">{municipios.isPending ? 'Cargando municipios…' : 'Selecciona el municipio'}</option>
+            {(municipios.data ?? []).map((m) => (
+              <option key={m.id} value={m.id}>
+                {nombrePropio(m.nombre)}
+              </option>
+            ))}
+          </select>
+          <small className="helper">Solo verá y gestionará a los líderes de este municipio.</small>
+        </label>
+      ) : (
+        <p className="helper">Líderes y sublíderes quedan en el municipio de su superior.</p>
+      )}
       {error && (
         <div className="form-error" role="alert">
           {error}

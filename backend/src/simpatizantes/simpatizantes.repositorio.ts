@@ -147,9 +147,9 @@ export class SimpatizantesRepositorio {
     return rows.map((r) => r.territorio_id);
   }
 
-  /** true si `miembroId` está dentro de la red del usuario de la sesión (campana.mi_red()). */
+  /** true si `miembroId` es un miembro que el usuario de la sesión puede ver (campana.miembros_visibles()). */
   async miembroEnMiRed(db: Kysely<DB>, miembroId: string): Promise<boolean> {
-    const { rows } = await sql`select 1 from campana.mi_red() where miembro_id = ${miembroId}::uuid`.execute(db);
+    const { rows } = await sql`select 1 from campana.miembros_visibles() where miembro_id = ${miembroId}::uuid`.execute(db);
     return rows.length > 0;
   }
 

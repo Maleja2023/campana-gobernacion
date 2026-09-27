@@ -30,7 +30,7 @@ export class RedRepositorio {
 
   async miembroEnRed(db: Kysely<DB>, miembroId: string): Promise<boolean> {
     const { rows } = await sql<{ miembro_id: string }>`
-      select miembro_id from campana.mi_red() where miembro_id = ${miembroId}::uuid
+      select miembro_id from campana.miembros_visibles() where miembro_id = ${miembroId}::uuid
     `.execute(db);
     return Boolean(rows[0]);
   }
@@ -52,6 +52,17 @@ export class RedRepositorio {
       select territorio_id from acceso.territorios_visibles() where territorio_id = any(${sql.val(territorioIds)}::integer[])
     `.execute(db);
     return rows.map((r) => r.territorio_id);
+  }
+
+  async municipiosEntre(db: Kysely<DB>, territorioIds: number[]): Promise<number[]> {
+    if (!territorioIds.length) return [];
+    const filas = await db
+      .selectFrom('territorio.territorios')
+      .select('id')
+      .where('id', 'in', territorioIds)
+      .where('tipo_codigo', '=', 'MUNICIPIO')
+      .execute();
+    return filas.map((f) => f.id);
   }
 
   async territorioVisible(db: Kysely<DB>, territorioId: number): Promise<boolean> {
@@ -96,10 +107,12 @@ export class RedRepositorio {
   async arbol(db: Kysely<DB>) {
     const { rows } = await sql`
       select r.miembro_id, r.superior_id, r.cargo_codigo, r.nombre, r.activo,
-             r.profundidad, r.camino, k.activos, k.ultimo_registro
+             r.profundidad, r.camino, k.activos, k.ultimo_registro,
+             r.miembro_id = (select m.id from acceso.usuarios u join campana.miembros m on m.persona_id = u.persona_id
+                              where u.id = acceso.usuario_actual()) as es_propio
         from campana.v_red_miembros r
         left join campana.v_ranking_miembros k on k.miembro_id = r.miembro_id
-       where r.miembro_id in (select miembro_id from campana.mi_red())
+       where r.miembro_id in (select miembro_id from campana.miembros_visibles())
        order by r.camino
     `.execute(db);
     return rows;
