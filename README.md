@@ -18,8 +18,8 @@ campana-gobernacion/
 │   └── 12_correccion_veredas.sql corrige las veredas de una base cargada antes de este arreglo
 ├── datos_gis/
 │   └── caqueta.gpkg
-├── backend/                      (siguiente fase: API en NestJS)
-└── frontend/                     (siguiente fase: aplicación web)
+├── backend/                      API en NestJS (ver backend/README.md)
+└── frontend/                     aplicación web en React (ver frontend/README.md)
 ```
 
 ## Requisitos
