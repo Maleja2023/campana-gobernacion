@@ -88,6 +88,16 @@ uno para votantes y otro para sumar líderes (el coordinador) o sublíderes
 (el líder). Quien entra por el segundo responde preguntas de líder y queda
 como solicitud hasta que quien lo invitó la aprueba en Mi red → Solicitudes.
 
+Y `34_derechos_titular.sql`: derechos de los titulares (Ley 1581). Cualquiera
+puede ver la política en `/privacidad` y, en `/mis-datos`, pedir conocer,
+corregir o eliminar sus datos, revocar la autorización o dejar de recibir
+mensajes. Cada solicitud recibe un radicado con su plazo legal y se tramita
+en Protección de datos, que también muestra la bitácora de auditoría. En el
+`.env`, `RESPONSABLE_NOMBRE`, `RESPONSABLE_CORREO` y `RESPONSABLE_TELEFONO`
+dicen quién responde. Respaldos, Cloudflare y cierre de la campaña:
+`scripts/respaldo.sh`, `scripts/probar_restauracion.sh`, `docs/cloudflare.md`
+y `docs/plan-cierre.md`.
+
 ## Registro sin conexión
 
 En `/registrar` se puede registrar sin señal (veredas sin cobertura):

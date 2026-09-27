@@ -19,6 +19,8 @@ import { ReportesPage } from './paginas/ReportesPage';
 import { SimpatizantesPage } from './paginas/SimpatizantesPage';
 import { UsuariosPage } from './paginas/UsuariosPage';
 import { DiaDPage, SinAccesoPage } from './paginas/DiaDPage';
+import { MisDatosPage, PrivacidadPage } from './paginas/PrivacidadPage';
+import { CumplimientoPage } from './paginas/CumplimientoPage';
 import { useSesion } from './sesion/SesionContext';
 
 /** A dónde debe ir el usuario mientras el proceso de acceso no esté LISTO. */
@@ -66,6 +68,8 @@ export function App() {
   return <Routes>
     <Route path="/login" element={<LoginPage />} />
     <Route path="/r/:codigo" element={<RegistroPublicoPage />} />
+    <Route path="/privacidad" element={<PrivacidadPage />} />
+    <Route path="/mis-datos" element={<MisDatosPage />} />
     <Route element={<Protected />}>
       <Route path="/cambiar-clave" element={<CambiarClavePage />} />
       <Route path="/configurar-mfa" element={<ConfigurarMfaPage />} />
@@ -84,6 +88,7 @@ export function App() {
         <Route path="registrar" element={<Permission code="SIMPATIZANTE_CREAR"><RegistrarPage /></Permission>} />
         <Route path="usuarios" element={<Permission code="USUARIO_GESTIONAR"><UsuariosPage /></Permission>} />
         <Route path="dia-d" element={<Permission code="E14_CARGAR"><DiaDPage /></Permission>} />
+        <Route path="cumplimiento" element={<Permission code="SOLICITUD_TITULAR"><CumplimientoPage /></Permission>} />
       </Route>
     </Route>
     <Route path="*" element={<Navigate to="/" replace />} />
