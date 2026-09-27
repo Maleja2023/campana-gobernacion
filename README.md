@@ -49,6 +49,15 @@ Para volver a empezar de cero: borrar la base (clic derecho > Delete) y repetir.
 
 ## Tareas programadas
 
+El backend las ejecuta solo (`backend/src/mantenimiento/`, con `@nestjs/schedule`),
+mientras el proceso de la API esté corriendo:
+
+- `campana.refrescar_conteos()` cada 10 minutos (mapa).
+- `chatbot.purgar_mensajes()` una vez al día, a las 3 a.m.
+
+Si prefieres programarlas en la propia base de datos en vez de en el backend
+(por ejemplo con `pg_cron`), puedes seguir llamándolas manualmente:
+
 - `SELECT campana.refrescar_conteos();` cada 5 a 15 minutos (mapa).
 - `SELECT chatbot.purgar_mensajes();` una vez al día.
 
@@ -56,3 +65,27 @@ Para volver a empezar de cero: borrar la base (clic derecho > Delete) y repetir.
 
 - Nunca subir contraseñas ni llaves de cifrado al repositorio (usar `.env`).
 - Nunca ejecutar `08_datos_demo.sql` en producción.
+
+## Pendientes
+
+### Backend
+
+1. Solicitudes de titulares según la Ley 1581: consulta y supresión de datos, con atención dentro de los plazos.
+2. Preparación para producción: cabeceras de seguridad, IP real detrás de Cloudflare, logs, respaldos y despliegue.
+
+Ya implementado (no listado arriba): doble factor (2FA); editar/retirar simpatizantes
+(`PATCH /simpatizantes/:personaId`, `POST /simpatizantes/:personaId/retirar`,
+permiso `SIMPATIZANTE_EDITAR`, pantalla en `/simpatizantes`); tareas programadas
+(`backend/src/mantenimiento/`); alertas de calidad: listar y resolverlas
+(`GET/PATCH /calidad/alertas`, permiso `ALERTA_GESTIONAR`, pantalla en `/alertas`);
+exportes a Excel con motivo auditado (`POST /simpatizantes/exportar`, permisos
+`EXPORTAR` + `SIMPATIZANTE_VER`, queda en `auditoria.exportaciones`).
+
+### Fase 2
+
+- Clasificación de necesidades con IA.
+- Eventos con QR.
+- Comunicaciones.
+- Bot de Telegram.
+- Día D.
+- Registro sin conexión.
