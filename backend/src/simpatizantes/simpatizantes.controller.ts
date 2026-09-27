@@ -1,8 +1,10 @@
-import { Controller, Get, HttpCode, Param, ParseIntPipe, ParseUUIDPipe, Post, Query, Req, Body } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, ParseIntPipe, ParseUUIDPipe, Patch, Post, Query, Req, Res } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 import { Publico, RequierePermiso, UsuarioActual } from '../auth/decoradores.js';
 import type { UsuarioSesion } from '../auth/auth.types.js';
+import { EditarSimpatizanteDto } from './dto/editar-simpatizante.dto.js';
+import { ExportarSimpatizantesDto } from './dto/exportar-simpatizantes.dto.js';
 import { RegistroSimpatizanteDto } from './dto/registro-simpatizante.dto.js';
 import { SimpatizantesService } from './simpatizantes.service.js';
 
@@ -14,6 +16,13 @@ export class SimpatizantesController {
   @Publico()
   politica() {
     return this.simpatizantes.politica();
+  }
+
+  @Get('registro/link/:codigo')
+  @Publico()
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  validarLink(@Param('codigo') codigo: string) {
+    return this.simpatizantes.validarLink(codigo);
   }
 
   @Post('registro')
@@ -56,5 +65,43 @@ export class SimpatizantesController {
   @RequierePermiso('DOCUMENTO_VER')
   documento(@Param('personaId', new ParseUUIDPipe()) personaId: string, @UsuarioActual() usuario: UsuarioSesion) {
     return this.simpatizantes.documento(usuario, personaId);
+  }
+
+  @Patch('simpatizantes/:personaId')
+  @RequierePermiso('SIMPATIZANTE_EDITAR')
+  editar(
+    @Param('personaId', new ParseUUIDPipe()) personaId: string,
+    @Body() dto: EditarSimpatizanteDto,
+    @UsuarioActual() usuario: UsuarioSesion,
+  ) {
+    return this.simpatizantes.editar(usuario, personaId, dto);
+  }
+
+  @Post('simpatizantes/:personaId/retirar')
+  @RequierePermiso('SIMPATIZANTE_EDITAR')
+  @HttpCode(200)
+  retirar(@Param('personaId', new ParseUUIDPipe()) personaId: string, @UsuarioActual() usuario: UsuarioSesion) {
+    return this.simpatizantes.retirar(usuario, personaId);
+  }
+
+  /** POST /api/simpatizantes/exportar — exige un motivo; queda auditado en
+   * auditoria.exportaciones (quién, motivo, formato, cuántos, qué territorios).
+   *
+   * Exige también SIMPATIZANTE_VER para no depender de que la asignación de
+   * roles actual siga igual: EXPORTAR es el permiso de la acción, pero quien
+   * exporta esta lista debe poder verla. Límite bajo porque cada llamada puede
+   * mover miles de filas: frena la exfiltración masiva con una cuenta robada. */
+  @Post('simpatizantes/exportar')
+  @RequierePermiso('EXPORTAR', 'SIMPATIZANTE_VER')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @HttpCode(200)
+  async exportar(@Body() dto: ExportarSimpatizantesDto, @UsuarioActual() usuario: UsuarioSesion, @Res({ passthrough: true }) res: Response) {
+    const { buffer, cantidad } = await this.simpatizantes.exportar(usuario, dto);
+    res.set({
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': 'attachment; filename="simpatizantes.xlsx"',
+      'X-Cantidad-Exportada': String(cantidad),
+    });
+    return buffer;
   }
 }
