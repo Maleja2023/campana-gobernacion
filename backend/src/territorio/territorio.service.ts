@@ -1,79 +1,58 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { sql } from 'kysely';
+import { Injectable } from '@nestjs/common';
+import { NoEncontradoError } from '../comun/errores/errores-dominio.js';
 import { DatabaseService } from '../database/database.service.js';
+import type { UsuarioSesion } from '../auth/auth.types.js';
+import { TerritorioRepositorio, type ResultadoBusqueda } from './territorio.repositorio.js';
 
-export interface ResultadoBusqueda {
-  id: number;
-  tipo: string;
-  nombre: string;
-  municipio: string | null;
-  similitud: number;
-}
+export type { ResultadoBusqueda };
 
 @Injectable()
 export class TerritorioService {
-  constructor(private readonly database: DatabaseService) {}
+  constructor(
+    private readonly database: DatabaseService,
+    private readonly repo: TerritorioRepositorio,
+  ) {}
 
   /** Buscador tolerante a tildes y errores (usa territorio.buscar). */
   async buscar(texto: string, tipo?: string, padre?: number): Promise<ResultadoBusqueda[]> {
-    const { rows } = await sql<ResultadoBusqueda>`
-      select id, tipo, nombre, municipio, similitud
-        from territorio.buscar(${texto}, ${tipo ?? null}, ${padre ?? null}::integer, 20)
-    `.execute(this.database.db);
-    return rows;
+    return this.repo.buscar(this.database.db, texto, tipo, padre);
   }
 
-  /** Municipios del departamento (id y nombre), para listas y filtros. */
   async municipios() {
-    return this.database.db
-      .selectFrom('territorio.territorios')
-      .select(['id', 'nombre'])
-      .where('tipo_codigo', '=', 'MUNICIPIO')
-      .orderBy('nombre')
-      .execute();
+    return this.repo.municipios(this.database.db);
+  }
+
+  async puestos(municipioId: number) {
+    return this.repo.puestos(this.database.db, municipioId);
+  }
+
+  async contorno() {
+    const fila = await this.repo.contorno(this.database.db);
+    if (!fila) throw new NoEncontradoError('No hay departamento cargado');
+    return { geojson: fila.geojson, bbox: fila.bbox };
   }
 
   /**
    * GeoJSON de los hijos de un territorio con su conteo de simpatizantes.
    * Sin `padre`, devuelve los municipios del departamento.
-   * Las zonas sin polígono (comunas, corregimientos) vienen con geometry null
-   * para que el frontend pueda listarlas aunque no se dibujen.
+   *
+   * Dentro de comoUsuario: los conteos (por territorio y el total del padre)
+   * salen de campana.conteo_territorio_visible(), que aplica el alcance del
+   * usuario (migración 20). Un territorio fuera de alcance llega en el
+   * GeoJSON con simpatizantes null y sinAcceso true, para pintarse en gris.
    */
-  async mapa(padre?: number) {
-    const padreId =
-      padre ??
-      (
-        await this.database.db
-          .selectFrom('territorio.territorios')
-          .select('id')
-          .where('tipo_codigo', '=', 'DEPARTAMENTO')
-          .executeTakeFirst()
-      )?.id;
+  async mapa(usuario: UsuarioSesion, padre?: number) {
+    return this.database.comoUsuario(usuario.id, async (trx) => {
+      const padreId = padre ?? (await this.repo.departamentoId(trx))?.id;
+      if (padreId === undefined) throw new NoEncontradoError('No hay territorio cargado');
 
-    if (padreId === undefined) {
-      throw new NotFoundException('No hay territorio cargado');
-    }
-
-    // Menos detalle en los polígonos grandes para que el mapa cargue rápido.
-    const { rows } = await sql<{ geojson: unknown }>`
-      select json_build_object(
-               'type', 'FeatureCollection',
-               'features', coalesce(json_agg(json_build_object(
-                   'type', 'Feature',
-                   'id', m.id,
-                   'geometry', case when m.geom is not null
-                                    then ST_AsGeoJSON(ST_SimplifyPreserveTopology(m.geom, 0.0005), 6)::json end,
-                   'properties', json_build_object(
-                       'nombre', m.nombre,
-                       'tipo', m.tipo_codigo,
-                       'simpatizantes', m.simpatizantes,
-                       'subdivisiones', m.subdivisiones)
-               )), '[]'::json)
-             ) as geojson
-        from territorio.v_mapa m
-       where m.padre_id = ${padreId}
-    `.execute(this.database.db);
-
-    return rows[0].geojson;
+      // ~55 m para municipios; ~20 m para veredas y comunas, que son más pequeñas.
+      const fila = await this.repo.mapa(trx, padreId, padre === undefined ? 0.0005 : 0.0002);
+      return {
+        ...(fila.geojson as object),
+        totalSimpatizantes: fila.total_simpatizantes,
+        totalSinAcceso: fila.total_sin_acceso,
+      };
+    });
   }
 }

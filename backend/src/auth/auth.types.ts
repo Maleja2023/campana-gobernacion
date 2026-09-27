@@ -1,8 +1,11 @@
+import type { EstadoSesion } from './estado-sesion.js';
+
 /** Usuario autenticado que viaja en cada petición. */
 export interface UsuarioSesion {
   id: string;
   login: string;
   sesionId: string;
+  estado: EstadoSesion;
 }
 
 /** Contenido del token JWT. */

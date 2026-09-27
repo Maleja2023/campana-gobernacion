@@ -14,12 +14,11 @@ campana-gobernacion/
 │   ├── 06_importar_gpkg.bat      importa caqueta.gpkg al esquema staging
 │   ├── 07_carga_territorio.sql   carga el territorio real del Caquetá
 │   ├── 08_datos_demo.sql         (opcional) 800 simpatizantes ficticios para pruebas
-│   ├── 09_consultas_utiles.sql   consultas de referencia para la API y reportes
-│   └── 12_correccion_veredas.sql corrige las veredas de una base cargada antes de este arreglo
+│   └── 09_consultas_utiles.sql   consultas de referencia para la API y reportes
 ├── datos_gis/
 │   └── caqueta.gpkg
-├── backend/                      API en NestJS (ver backend/README.md)
-└── frontend/                     aplicación web en React (ver frontend/README.md)
+├── backend/                      (siguiente fase: API en NestJS)
+└── frontend/                     (siguiente fase: aplicación web)
 ```
 
 ## Requisitos
@@ -44,9 +43,12 @@ El paso 4 depura la capa de veredas antes de cargarla: cada vereda queda en el
 municipio que la contiene según el límite oficial (MGN), se descartan los
 polígonos "SIN DEFINIR" y se unen las veredas repetidas.
 
-**Si tu base se cargó antes de este arreglo** (tiene 1.274 veredas), ejecuta
-`12_correccion_veredas.sql` una vez. Mueve lo ya registrado a la vereda o al
-municipio correcto sin borrar ningún simpatizante.
+**Si su base se cargó antes de este arreglo** (tiene 1.274 veredas), ejecute
+`22_correccion_veredas.sql` una vez, después de los scripts 10 a 21. Mueve lo
+ya registrado a la vereda o al municipio correcto sin borrar ningún simpatizante.
+
+Después ejecute `23_validar_link_publico.sql`: sin él, el formulario público de
+registro (`/r/<código>`) dice que todo enlace "no está activo".
 
 Para volver a empezar de cero: borrar la base (clic derecho > Delete) y repetir.
 
@@ -58,6 +60,15 @@ Para volver a empezar de cero: borrar la base (clic derecho > Delete) y repetir.
 
 ## Tareas programadas
 
+El backend las ejecuta solo (`backend/src/mantenimiento/`, con `@nestjs/schedule`),
+mientras el proceso de la API esté corriendo:
+
+- `campana.refrescar_conteos()` cada 10 minutos (mapa).
+- `chatbot.purgar_mensajes()` una vez al día, a las 3 a.m.
+
+Si prefieres programarlas en la propia base de datos en vez de en el backend
+(por ejemplo con `pg_cron`), puedes seguir llamándolas manualmente:
+
 - `SELECT campana.refrescar_conteos();` cada 5 a 15 minutos (mapa).
 - `SELECT chatbot.purgar_mensajes();` una vez al día.
 
@@ -65,3 +76,27 @@ Para volver a empezar de cero: borrar la base (clic derecho > Delete) y repetir.
 
 - Nunca subir contraseñas ni llaves de cifrado al repositorio (usar `.env`).
 - Nunca ejecutar `08_datos_demo.sql` en producción.
+
+## Pendientes
+
+### Backend
+
+1. Solicitudes de titulares según la Ley 1581: consulta y supresión de datos, con atención dentro de los plazos.
+2. Preparación para producción: cabeceras de seguridad, IP real detrás de Cloudflare, logs, respaldos y despliegue.
+
+Ya implementado (no listado arriba): doble factor (2FA); editar/retirar simpatizantes
+(`PATCH /simpatizantes/:personaId`, `POST /simpatizantes/:personaId/retirar`,
+permiso `SIMPATIZANTE_EDITAR`, pantalla en `/simpatizantes`); tareas programadas
+(`backend/src/mantenimiento/`); alertas de calidad: listar y resolverlas
+(`GET/PATCH /calidad/alertas`, permiso `ALERTA_GESTIONAR`, pantalla en `/alertas`);
+exportes a Excel con motivo auditado (`POST /simpatizantes/exportar`, permisos
+`EXPORTAR` + `SIMPATIZANTE_VER`, queda en `auditoria.exportaciones`).
+
+### Fase 2
+
+- Clasificación de necesidades con IA.
+- Eventos con QR.
+- Comunicaciones.
+- Bot de Telegram.
+- Día D.
+- Registro sin conexión.

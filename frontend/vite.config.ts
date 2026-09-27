@@ -1,10 +1,10 @@
-import react from '@vitejs/plugin-react'
-import { defineConfig } from 'vite'
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
 
-// En desarrollo, /api se redirige a la API de NestJS (puerto 3000).
 export default defineConfig({
   plugins: [react()],
-  server: {
-    proxy: { '/api': 'http://localhost:3000' },
-  },
-})
+  server: { port: 5173 },
+  // Sin mapas de código fuente en producción: no exponer el código TS/JSX
+  // original (rutas de archivo, lógica interna) a quien inspeccione el sitio.
+  build: { sourcemap: false },
+});

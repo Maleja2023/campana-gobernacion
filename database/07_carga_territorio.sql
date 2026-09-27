@@ -62,7 +62,7 @@ SELECT DISTINCT
 --   - Se quitan caracteres dañados del nombre ("RÍO BRAVO").
 --   - Si dos veredas distintas del mismo municipio se llaman igual, se les
 --     agrega el código DANE: "EL ARENOSO (18592033)".
--- (12_correccion_veredas.sql aplica este mismo bloque a una base ya cargada.)
+-- (22_correccion_veredas.sql aplica este mismo bloque a una base ya cargada.)
 DROP TABLE IF EXISTS staging.veredas_depuradas;
 CREATE TABLE staging.veredas_depuradas AS
 WITH base AS (
