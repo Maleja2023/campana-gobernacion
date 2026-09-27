@@ -92,17 +92,15 @@ export class SimpatizantesRepositorio {
       .execute();
   }
 
+  /**
+   * Valida un enlace de registro para un visitante anónimo. Usa
+   * campana.lider_de_link() (migración 23, SECURITY DEFINER): la seguridad por
+   * fila no deja a un anónimo leer los datos del líder en personas.personas.
+   */
   async linkValido(db: Kysely<DB>, codigo: string) {
-    return db
-      .selectFrom('campana.links_referido as l')
-      .innerJoin('campana.miembros as m', 'm.id', 'l.miembro_id')
-      .innerJoin('personas.personas as p', 'p.id', 'm.persona_id')
-      .select('p.nombres')
-      .where('l.codigo', '=', codigo)
-      .where('l.activo', '=', true)
-      .where('m.activo', '=', true)
-      .where((eb) => eb.or([eb('l.expira_en', 'is', null), eb('l.expira_en', '>', new Date())]))
-      .executeTakeFirst();
+    const { rows } = await sql<{ lider: string | null }>`select campana.lider_de_link(${codigo}) as lider`.execute(db);
+    const lider = rows[0]?.lider;
+    return lider ? { nombres: lider } : undefined;
   }
 
   jornadaMasReciente(db: Kysely<DB>) {

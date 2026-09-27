@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router';
 import { api } from '../api/cliente';
 import { useSesion } from '../sesion/SesionContext';
+import { PanelMarca } from './LoginPage';
 
 export function VerificarMfaPage() {
   const { refrescar, cerrar } = useSesion();
@@ -35,12 +36,9 @@ export function VerificarMfaPage() {
 
   return (
     <main className="auth-page">
-      <section className="auth-art">
-        <span className="brand-mark">CG</span>
-        <p className="eyebrow">Verificación en dos pasos</p>
-        <h1>Confirma tu identidad</h1>
+      <PanelMarca titulo="Confirma tu identidad">
         <p>Esta cuenta tiene doble factor activado. Abre tu app de autenticación e ingresa el código de 6 dígitos.</p>
-      </section>
+      </PanelMarca>
       <form className="auth-card" onSubmit={enviar}>
         <p className="eyebrow">Doble factor</p>
         <h2>{modo === 'totp' ? 'Código de la app' : 'Código de recuperación'}</h2>

@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router';
 import { api, type MiembroRed, type Simpatizante, type TerritorioCatalogo } from '../api/cliente';
 import { Cargando, ErrorEstado } from '../componentes/Estados';
 import { useSesion } from '../sesion/SesionContext';
+import { nombrePropio } from '../util/nombres';
 
 const POR_PAGINA = 20;
 
@@ -272,11 +273,13 @@ export function SimpatizantesPage() {
                 {lista.data.datos.map((s) => (
                   <tr key={s.persona_id}>
                     <td>
-                      {s.nombres} {s.apellidos}
+                      <strong style={{ fontWeight: 600 }}>{nombrePropio(`${s.nombres ?? ''} ${s.apellidos ?? ''}`)}</strong>
                     </td>
                     <td>
-                      {s.territorio_residencia}
-                      {s.municipio && s.municipio !== s.territorio_residencia ? ` · ${s.municipio}` : ''}
+                      {nombrePropio(s.territorio_residencia)}
+                      {s.municipio && s.municipio !== s.territorio_residencia && (
+                        <small style={{ display: 'block', color: 'var(--texto-3)' }}>{nombrePropio(s.municipio)}</small>
+                      )}
                     </td>
                     <td>
                       <span className={`estado-pill estado-${(s.estado_codigo ?? '').toLowerCase()}`}>{etiquetaEstado(s.estado_codigo)}</span>

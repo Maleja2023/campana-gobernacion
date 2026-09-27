@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/cliente';
 import { useSesion } from '../sesion/SesionContext';
+import { PanelMarca } from './LoginPage';
 import { Cargando, ErrorEstado } from '../componentes/Estados';
 
 export function ConfigurarMfaPage() {
@@ -65,15 +66,9 @@ export function ConfigurarMfaPage() {
 
   return (
     <main className="auth-page">
-      <section className="auth-art">
-        <span className="brand-mark">CG</span>
-        <p className="eyebrow">Seguridad de la cuenta</p>
-        <h1>Activa el doble factor</h1>
-        <p>
-          Tu rol exige verificación en dos pasos. Escanea el código con una app de autenticación (Google
-          Authenticator, Authy, 1Password, etc.) y escribe el código de 6 dígitos que te muestre.
-        </p>
-      </section>
+      <PanelMarca titulo="Activa la verificación en dos pasos">
+        <p>Tu rol exige verificación en dos pasos. Escanea el código con una app de autenticación (Google Authenticator, Authy, 1Password, etc.) y escribe el código de 6 dígitos que te muestre.</p>
+      </PanelMarca>
       <form className="auth-card" onSubmit={confirmar}>
         <p className="eyebrow">Doble factor</p>
         <h2>Escanea y confirma</h2>

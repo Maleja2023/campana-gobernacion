@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, type MiembroRed, type RolAsignable, type UsuarioFila } from '../api/cliente';
 import { Cargando, ErrorEstado } from '../componentes/Estados';
 import { useSesion } from '../sesion/SesionContext';
+import { nombrePropio } from '../util/nombres';
 
 const POR_PAGINA = 20;
 
@@ -155,10 +156,10 @@ export function UsuariosPage() {
                   <tr key={u.id}>
                     <td>{u.login}</td>
                     <td>
-                      {u.nombres} {u.apellidos}
+                      {nombrePropio(`${u.nombres} ${u.apellidos}`)}
                     </td>
                     <td>{u.roles.map((r) => r.nombre).join(', ') || '—'}</td>
-                    <td>{u.territorios.map((t) => t.nombre).join(', ') || '—'}</td>
+                    <td>{u.territorios.map((t) => nombrePropio(t.nombre)).join(', ') || '—'}</td>
                     <td>{formatFecha(u.ultimo_ingreso)}</td>
                     <td>
                       <span className={`estado-pill ${u.activo ? 'estado-activo' : 'estado-retirado'}`}>{u.activo ? 'Activo' : 'Inactivo'}</span>
@@ -337,7 +338,7 @@ function CrearUsuarioForm({ roles, miembros, onDone }: { roles: RolAsignable[]; 
             <option value="">Selecciona uno</option>
             {miembros.map((m) => (
               <option key={m.miembro_id} value={m.miembro_id}>
-                {m.nombre}
+                {nombrePropio(m.nombre)}
               </option>
             ))}
           </select>
@@ -364,7 +365,7 @@ function CrearUsuarioForm({ roles, miembros, onDone }: { roles: RolAsignable[]; 
           <div className="choice-list">
             {resultados.map((t) => (
               <button type="button" key={t.id} onClick={() => agregarTerritorio({ id: t.id, nombre: t.nombre })}>
-                {t.nombre}
+                {nombrePropio(t.nombre)}
               </button>
             ))}
           </div>
@@ -373,7 +374,7 @@ function CrearUsuarioForm({ roles, miembros, onDone }: { roles: RolAsignable[]; 
           <ul className="legend-municipios-list">
             {territorios.map((t) => (
               <li key={t.id}>
-                {t.nombre}{' '}
+                {nombrePropio(t.nombre)}{' '}
                 <button type="button" className="link-button" onClick={() => setTerritorios(territorios.filter((x) => x.id !== t.id))}>
                   Quitar
                 </button>

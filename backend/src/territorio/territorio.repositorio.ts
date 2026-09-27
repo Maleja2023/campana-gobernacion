@@ -77,14 +77,21 @@ export class TerritorioRepositorio {
    * simpatizantes NULL y sin_acceso true; el total del padre, igual, si el
    * propio padre no es visible.
    */
-  mapa(db: Kysely<DB>, padreId: number) {
+  /**
+   * `tolerancia` (grados) simplifica los polígonos para que el mapa cargue
+   * rápido: más alta para los municipios, más baja para veredas y comunas.
+   * Las zonas sin polígono oficial (comunas, corregimientos) llegan con
+   * geometry null: el mapa no las dibuja, pero sí las lista.
+   */
+  mapa(db: Kysely<DB>, padreId: number, tolerancia: number) {
     return sql<{ geojson: unknown; total_simpatizantes: number | null; total_sin_acceso: boolean }>`
       select json_build_object(
                'type', 'FeatureCollection',
                'features', coalesce(json_agg(json_build_object(
                    'type', 'Feature',
                    'id', m.id,
-                   'geometry', ST_AsGeoJSON(ST_SimplifyPreserveTopology(m.geom, 0.0005), 6)::json,
+                   'geometry', case when m.geom is not null
+                                    then ST_AsGeoJSON(ST_SimplifyPreserveTopology(m.geom, ${tolerancia}::float8), 6)::json end,
                    'properties', json_build_object(
                        'nombre', m.nombre,
                        'tipo', m.tipo_codigo,
@@ -97,7 +104,6 @@ export class TerritorioRepositorio {
              (not exists (select 1 from campana.conteo_territorio_visible() where territorio_id = ${padreId})) as total_sin_acceso
         from territorio.v_mapa m
        where m.padre_id = ${padreId}
-         and m.geom is not null
     `
       .execute(db)
       .then((r) => r.rows[0]);

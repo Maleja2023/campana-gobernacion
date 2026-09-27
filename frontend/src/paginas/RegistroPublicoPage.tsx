@@ -3,6 +3,8 @@ import { useParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/cliente';
 import { Cargando, ErrorEstado } from '../componentes/Estados';
+import { Icono } from '../componentes/Icono';
+import { nombrePropio } from '../util/nombres';
 
 type Datos = {
   nombres: string;
@@ -80,7 +82,7 @@ export function RegistroPublicoPage() {
       </div>
     );
   }
-  const lider = link.data.lider ?? 'tu líder';
+  const lider = link.data.lider ? nombrePropio(link.data.lider) : 'tu líder';
 
   function ir(destino: number) {
     setError('');
@@ -153,7 +155,7 @@ export function RegistroPublicoPage() {
     return (
       <main className="chat-page">
         <section className="chat-card success-chat">
-          <span className="brand-mark">CG</span>
+          <span className="brand-mark"><Icono nombre="escudo" tamano={19} /></span>
           <h1>Gracias por participar</h1>
           <p>Tu registro fue recibido correctamente.</p>
         </section>
@@ -167,7 +169,7 @@ export function RegistroPublicoPage() {
     <main className="chat-page">
       <section className="chat-card">
         <header className="chat-header">
-          <span className="brand-mark">CG</span>
+          <span className="brand-mark"><Icono nombre="escudo" tamano={19} /></span>
           <div>
             <strong>Campaña Gobernación</strong>
             <small>Registro seguro</small>

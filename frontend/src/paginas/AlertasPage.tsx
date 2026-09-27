@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, type Alerta } from '../api/cliente';
 import { Cargando, ErrorEstado } from '../componentes/Estados';
+import { nombrePropio } from '../util/nombres';
 
 const SEVERIDAD_ETIQUETA: Record<string, string> = { ALTA: 'Alta', MEDIA: 'Media', BAJA: 'Baja' };
 const ESTADO_ETIQUETA: Record<string, string> = { ABIERTA: 'Abierta', EN_REVISION: 'En revisión', RESUELTA: 'Resuelta', DESCARTADA: 'Descartada' };
@@ -128,7 +129,7 @@ function AlertaCard({
                     {detalle.data.personas.map((p) => (
                       <li key={p.id}>
                         <strong>
-                          {p.nombres} {p.apellidos}
+                          {nombrePropio(`${p.nombres} ${p.apellidos}`)}
                         </strong>
                         <small>
                           {p.zona ?? 'Sin zona registrada'}
@@ -146,7 +147,7 @@ function AlertaCard({
                     {detalle.data.miembros.map((m) => (
                       <li key={m.id}>
                         <strong>
-                          {m.nombres} {m.apellidos} · {m.cargo_codigo}
+                          {nombrePropio(`${m.nombres} ${m.apellidos}`)} · {nombrePropio(m.cargo_codigo)}
                         </strong>
                         <small>
                           {m.zona ?? 'Sin zona asignada'}

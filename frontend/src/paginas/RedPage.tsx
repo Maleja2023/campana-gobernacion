@@ -4,6 +4,7 @@ import QRCode from 'qrcode';
 import { api, type MiembroRed, type MiLink } from '../api/cliente';
 import { Cargando, ErrorEstado } from '../componentes/Estados';
 import { useSesion } from '../sesion/SesionContext';
+import { nombrePropio } from '../util/nombres';
 
 type Tab = 'links' | 'estructura' | 'metas';
 const CARGOS: { codigo: 'COORDINADOR' | 'LIDER' | 'SUBLIDER'; etiqueta: string }[] = [
@@ -242,7 +243,7 @@ function Estructura({ puedeGestionar }: { puedeGestionar: boolean }) {
           <tbody>
             {arbol.data.map((m) => (
               <tr key={m.miembro_id}>
-                <td style={{ paddingLeft: `${m.profundidad}rem` }}>{m.nombre}</td>
+                <td style={{ paddingLeft: `${m.profundidad}rem` }}>{nombrePropio(m.nombre)}</td>
                 <td>{m.cargo_codigo}</td>
                 <td>{m.activos ?? 0}</td>
                 <td>{formatFecha(m.ultimo_registro)}</td>
@@ -265,7 +266,7 @@ function Estructura({ puedeGestionar }: { puedeGestionar: boolean }) {
                           .filter((otro) => otro.miembro_id !== m.miembro_id)
                           .map((otro) => (
                             <option key={otro.miembro_id} value={otro.miembro_id}>
-                              {otro.nombre}
+                              {nombrePropio(otro.nombre)}
                             </option>
                           ))}
                       </select>
@@ -372,7 +373,7 @@ function CrearMiembroForm({ miembros, onDone }: { miembros: MiembroRed[]; onDone
             <option value="">Selecciona uno</option>
             {miembros.map((m) => (
               <option key={m.miembro_id} value={m.miembro_id}>
-                {m.nombre}
+                {nombrePropio(m.nombre)}
               </option>
             ))}
           </select>
@@ -437,7 +438,7 @@ function MetaMiembroForm({ miembros }: { miembros: MiembroRed[] }) {
           <option value="">Selecciona uno</option>
           {miembros.map((m) => (
             <option key={m.miembro_id} value={m.miembro_id}>
-              {m.nombre}
+              {nombrePropio(m.nombre)}
             </option>
           ))}
         </select>
@@ -536,7 +537,7 @@ function MetaTerritorioForm() {
                 setTexto(t.nombre);
               }}
             >
-              {t.nombre}
+              {nombrePropio(t.nombre)}
             </button>
           ))}
         </div>

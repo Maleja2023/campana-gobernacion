@@ -37,7 +37,18 @@ campana-gobernacion/
 5. (Opcional, solo en una base de pruebas) ejecutar `08_datos_demo.sql`.
 
 Resultado esperado del paso 4: 1 departamento, 16 municipios, 4 comunas,
-13 corregimientos, 1.274 veredas y 146 puestos de votación.
+13 corregimientos, 1.220 veredas y 146 puestos de votación.
+
+El paso 4 depura la capa de veredas antes de cargarla: cada vereda queda en el
+municipio que la contiene según el límite oficial (MGN), se descartan los
+polígonos "SIN DEFINIR" y se unen las veredas repetidas.
+
+**Si su base se cargó antes de este arreglo** (tiene 1.274 veredas), ejecute
+`22_correccion_veredas.sql` una vez, después de los scripts 10 a 21. Mueve lo
+ya registrado a la vereda o al municipio correcto sin borrar ningún simpatizante.
+
+Después ejecute `23_validar_link_publico.sql`: sin él, el formulario público de
+registro (`/r/<código>`) dice que todo enlace "no está activo".
 
 Para volver a empezar de cero: borrar la base (clic derecho > Delete) y repetir.
 

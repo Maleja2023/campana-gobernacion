@@ -46,7 +46,8 @@ export class TerritorioService {
       const padreId = padre ?? (await this.repo.departamentoId(trx))?.id;
       if (padreId === undefined) throw new NoEncontradoError('No hay territorio cargado');
 
-      const fila = await this.repo.mapa(trx, padreId);
+      // ~55 m para municipios; ~20 m para veredas y comunas, que son más pequeñas.
+      const fila = await this.repo.mapa(trx, padreId, padre === undefined ? 0.0005 : 0.0002);
       return {
         ...(fila.geojson as object),
         totalSimpatizantes: fila.total_simpatizantes,
