@@ -1,13 +1,13 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import QRCode from 'qrcode';
-import { api, type LiderRanking, type MetaMiembro, type MiembroRed, type MiLink } from '../api/cliente';
+import { api, type EnlaceLideres, type LiderRanking, type MetaMiembro, type MiembroRed, type MiLink, type SolicitudLider } from '../api/cliente';
 import { Cargando, ErrorEstado } from '../componentes/Estados';
 import { Icono } from '../componentes/Icono';
 import { useSesion } from '../sesion/SesionContext';
 import { nombrePropio } from '../util/nombres';
 
-type Tab = 'enlace' | 'arbol' | 'metas' | 'ranking';
+type Tab = 'enlace' | 'solicitudes' | 'arbol' | 'metas' | 'ranking';
 const CARGOS: { codigo: 'COORDINADOR' | 'LIDER' | 'SUBLIDER'; etiqueta: string }[] = [
   { codigo: 'COORDINADOR', etiqueta: 'Coordinador' },
   { codigo: 'LIDER', etiqueta: 'Líder' },
@@ -45,8 +45,11 @@ export function RedPage() {
   const puedeGestionarMiembros = tienePermiso('MIEMBRO_GESTIONAR');
   const puedeGestionarMetas = tienePermiso('META_GESTIONAR');
   const [tab, setTab] = useState<Tab>('enlace');
+  const pendientes = useQuery({ queryKey: ['red-solicitudes', 'PENDIENTE'], queryFn: () => api.solicitudesLider('PENDIENTE') });
+  const nPendientes = pendientes.data?.length ?? 0;
   const pestanas: [Tab, string][] = [
-    ['enlace', 'Mi enlace'],
+    ['enlace', 'Mis enlaces'],
+    ['solicitudes', nPendientes ? `Solicitudes de líderes (${nPendientes})` : 'Solicitudes de líderes'],
     ['arbol', 'Árbol de la red'],
     ['metas', 'Metas'],
     ['ranking', 'Ranking'],
@@ -58,7 +61,7 @@ export function RedPage() {
         <div>
           <p className="eyebrow">Red de referidos</p>
           <h1>Mi red</h1>
-          <p className="dashboard-subtitle">Tu enlace personal, la estructura de coordinadores, líderes y sublíderes, sus metas y su avance.</p>
+          <p className="dashboard-subtitle">Tus enlaces (para votantes y para sumar líderes), las solicitudes de líderes, la estructura de la red, sus metas y su avance.</p>
         </div>
       </div>
       <nav className="agenda-tabs" role="tablist" aria-label="Secciones de mi red">
@@ -68,7 +71,8 @@ export function RedPage() {
           </button>
         ))}
       </nav>
-      {tab === 'enlace' && <MiEnlace />}
+      {tab === 'enlace' && <MiEnlace verSolicitudes={() => setTab('solicitudes')} />}
+      {tab === 'solicitudes' && <Solicitudes />}
       {tab === 'arbol' && <Arbol puedeGestionar={puedeGestionarMiembros} />}
       {tab === 'metas' && <Metas puedeGestionar={puedeGestionarMetas} />}
       {tab === 'ranking' && <Ranking />}
@@ -81,8 +85,10 @@ export function RedPage() {
 // ---------------------------------------------------------------------------
 
 const MENSAJE_WHATSAPP = (url: string) => `Te invito a hacer parte de la campaña. Regístrate aquí: ${url}`;
+const MENSAJE_WHATSAPP_LIDER = (url: string, rol: string) =>
+  `Te invito a ser ${rol} de mi equipo en la campaña a la Gobernación del Caquetá. Regístrate aquí y cuéntame en qué zona puedes trabajar: ${url}`;
 
-async function tarjetaConQr(nombre: string, codigo: string, url: string): Promise<string> {
+async function tarjetaConQr(nombre: string, codigo: string, url: string, lema = 'Escanea y regístrate'): Promise<string> {
   const qr = await QRCode.toDataURL(url, { margin: 1, width: 520, errorCorrectionLevel: 'M' });
   const imagen = new Image();
   imagen.src = qr;
@@ -101,7 +107,7 @@ async function tarjetaConQr(nombre: string, codigo: string, url: string): Promis
   c.fillText('Campaña a la Gobernación del Caquetá', 360, 90);
   c.font = '400 24px "Public Sans Variable", system-ui, sans-serif';
   c.fillStyle = '#b7c5d8';
-  c.fillText('Escanea y regístrate', 360, 140);
+  c.fillText(lema, 360, 140);
   c.drawImage(imagen, 100, 250, 520, 520);
   c.fillStyle = '#0f1b2d';
   c.font = '600 30px "Public Sans Variable", system-ui, sans-serif';
@@ -123,7 +129,7 @@ function descargar(dataUrl: string, archivo: string) {
   a.remove();
 }
 
-function MiEnlace() {
+function MiEnlace({ verSolicitudes }: { verSolicitudes: () => void }) {
   const cache = useQueryClient();
   const { usuario } = useSesion();
   const links = useQuery({ queryKey: ['red-links'], queryFn: api.misLinks });
@@ -166,12 +172,12 @@ function MiEnlace() {
         <section className="dashboard-block enlace-personal">
           <div className="enlace-qr">{qr.data ? <img src={qr.data} alt={`Código QR de tu enlace ${principal.codigo}`} width={180} height={180} /> : <Cargando texto="" />}</div>
           <div className="enlace-datos">
-            <p className="eyebrow">Tu enlace personal</p>
+            <p className="eyebrow">Enlace para votantes</p>
             <h2>
               Código <span className="codigo">{principal.codigo}</span>
             </h2>
             <code>{principal.url}</code>
-            <p className="helper">Quien se registre con este enlace o escaneando el código queda en tu red.</p>
+            <p className="helper">Quien se registre con este enlace o escaneando el código queda como votante referido por ti.</p>
             <div className="form-actions">
               <button type="button" className="primary-button" onClick={() => void copiar(principal.url)}>
                 <Icono nombre={copiado === principal.url ? 'check' : 'copiar'} tamano={16} />
@@ -213,8 +219,211 @@ function MiEnlace() {
       ) : (
         <div className="empty-inline">Tu usuario no es parte de la estructura de campaña, por eso no tiene enlace personal.</div>
       )}
+      <EnlaceLideresTarjeta nombre={nombre} copiar={copiar} copiado={copiado} verSolicitudes={verSolicitudes} />
       <OtrosLinks links={links.data} onCambio={() => void cache.invalidateQueries({ queryKey: ['red-links'] })} copiar={copiar} copiado={copiado} />
     </>
+  );
+}
+
+/** Enlace para sumar líderes (coordinador) o sublíderes (líder): quien entra
+ * por él queda como solicitud, que aprueba quien invitó. */
+function EnlaceLideresTarjeta({
+  nombre,
+  copiar,
+  copiado,
+  verSolicitudes,
+}: {
+  nombre: string;
+  copiar: (url: string) => Promise<void>;
+  copiado?: string;
+  verSolicitudes: () => void;
+}) {
+  const enlace = useQuery({ queryKey: ['red-enlace-lideres'], queryFn: async (): Promise<EnlaceLideres | null> => (await api.enlaceLideres()) ?? null });
+  const e = enlace.data;
+  const qr = useQuery({
+    queryKey: ['red-link-qr', e?.url],
+    queryFn: () => QRCode.toDataURL(e!.url, { margin: 1, width: 360 }),
+    enabled: Boolean(e),
+  });
+  if (!e) return null;
+  const rol = e.cargoInvitado === 'SUBLIDER' ? 'sublíder' : 'líder';
+  const roles = e.cargoInvitado === 'SUBLIDER' ? 'sublíderes' : 'líderes';
+  return (
+    <section className="dashboard-block enlace-personal enlace-lideres">
+      <div className="enlace-qr">{qr.data ? <img src={qr.data} alt={`Código QR para invitar ${roles}`} width={180} height={180} /> : <Cargando texto="" />}</div>
+      <div className="enlace-datos">
+        <p className="eyebrow">Enlace para sumar {roles}</p>
+        <h2>
+          Código <span className="codigo">{e.codigo}</span>
+        </h2>
+        <code>{e.url}</code>
+        <p className="helper">
+          Quien se registre por aquí queda como votante y te envía una solicitud para ser {rol} de tu equipo. Entra a la estructura cuando la apruebes.
+        </p>
+        <div className="form-actions">
+          <button type="button" className="primary-button" onClick={() => void copiar(e.url)}>
+            <Icono nombre={copiado === e.url ? 'check' : 'copiar'} tamano={16} />
+            {copiado === e.url ? 'Copiado' : 'Copiar enlace'}
+          </button>
+          <a className="secondary-button" href={`https://wa.me/?text=${encodeURIComponent(MENSAJE_WHATSAPP_LIDER(e.url, rol))}`} target="_blank" rel="noreferrer">
+            Compartir por WhatsApp
+          </a>
+          {qr.data && (
+            <button type="button" className="secondary-button" onClick={() => descargar(qr.data, `qr-${roles}-${e.codigo}.png`)}>
+              Descargar QR
+            </button>
+          )}
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() => void tarjetaConQr(nombre, e.codigo, e.url, `Únete a mi equipo como ${rol}`).then((t) => descargar(t, `tarjeta-${roles}-${e.codigo}.png`))}
+          >
+            Tarjeta para imprimir
+          </button>
+        </div>
+      </div>
+      <div className="enlace-cifras">
+        <div>
+          <span>Solicitudes por revisar</span>
+          <strong>{e.pendientes.toLocaleString('es-CO')}</strong>
+          {e.pendientes > 0 && (
+            <button type="button" className="link-button" onClick={verSolicitudes}>
+              Revisarlas
+            </button>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Solicitudes de quienes se registraron por un enlace de líderes
+// ---------------------------------------------------------------------------
+
+const ESTADOS_SOLICITUD: [SolicitudLider['estado'], string][] = [
+  ['PENDIENTE', 'Por revisar'],
+  ['APROBADA', 'Aprobadas'],
+  ['RECHAZADA', 'Rechazadas'],
+];
+
+function Solicitudes() {
+  const cache = useQueryClient();
+  const { tienePermiso } = useSesion();
+  const [estado, setEstado] = useState<SolicitudLider['estado']>('PENDIENTE');
+  const [mensaje, setMensaje] = useState<{ tipo: 'ok' | 'error'; texto: string; url?: string }>();
+  const [procesando, setProcesando] = useState<string>();
+  const lista = useQuery({ queryKey: ['red-solicitudes', estado], queryFn: () => api.solicitudesLider(estado) });
+  const gestiona = tienePermiso('MIEMBRO_GESTIONAR');
+
+  async function resolver(s: SolicitudLider, aprobar: boolean) {
+    let observacion: string | undefined;
+    if (!aprobar) {
+      const motivo = window.prompt(`¿Por qué rechazas la solicitud de ${nombrePropio(s.nombre)}? (opcional)`);
+      if (motivo === null) return;
+      observacion = motivo;
+    }
+    setProcesando(s.id);
+    setMensaje(undefined);
+    try {
+      const r = await api.resolverSolicitudLider(s.id, aprobar, observacion);
+      setMensaje(
+        aprobar
+          ? { tipo: 'ok', texto: `${nombrePropio(s.nombre)} ya es ${s.cargo_propuesto === 'SUBLIDER' ? 'sublíder' : 'líder'} de la red. Envíale su enlace para registrar votantes:`, url: r.urlLink ?? undefined }
+          : { tipo: 'ok', texto: `Solicitud de ${nombrePropio(s.nombre)} rechazada.` },
+      );
+      await Promise.all([
+        cache.invalidateQueries({ queryKey: ['red-solicitudes'] }),
+        cache.invalidateQueries({ queryKey: ['red-enlace-lideres'] }),
+        cache.invalidateQueries({ queryKey: ['red-arbol'] }),
+      ]);
+    } catch (causa) {
+      setMensaje({ tipo: 'error', texto: causa instanceof Error ? causa.message : 'No fue posible resolver la solicitud.' });
+    } finally {
+      setProcesando(undefined);
+    }
+  }
+
+  return (
+    <section className="dashboard-block">
+      <div className="block-heading">
+        <div>
+          <h2>Solicitudes para ser líder</h2>
+          <small style={{ color: 'var(--texto-3)' }}>
+            Personas que se registraron por un enlace para sumar líderes. Llámalas, confirma que pueden asumir el rol y apruébalas.
+          </small>
+        </div>
+        <div className="segmented" role="group" aria-label="Estado">
+          {ESTADOS_SOLICITUD.map(([clave, etiqueta]) => (
+            <button key={clave} type="button" className={estado === clave ? 'selected' : ''} onClick={() => setEstado(clave)}>
+              {etiqueta}
+            </button>
+          ))}
+        </div>
+      </div>
+      {mensaje && (
+        <div className={mensaje.tipo === 'ok' ? 'form-success' : 'form-error'} role={mensaje.tipo === 'ok' ? 'status' : 'alert'}>
+          {mensaje.texto} {mensaje.url && <code>{mensaje.url}</code>}
+        </div>
+      )}
+      {lista.isPending && <Cargando texto="Cargando solicitudes..." />}
+      {lista.isError && <ErrorEstado mensaje={lista.error.message} reintentar={() => void lista.refetch()} />}
+      {lista.data?.length === 0 && (
+        <div className="empty-inline">{estado === 'PENDIENTE' ? 'No hay solicitudes por revisar. Comparte tu enlace para sumar líderes.' : 'No hay solicitudes en este estado.'}</div>
+      )}
+      {lista.data && lista.data.length > 0 && (
+        <ul className="solicitudes-lider">
+          {lista.data.map((s) => (
+            <li key={s.id}>
+              <div className="solicitud-datos">
+                <strong>{nombrePropio(s.nombre)}</strong>
+                <span>
+                  Quiere ser <b>{s.cargo_propuesto === 'SUBLIDER' ? 'sublíder' : 'líder'}</b>
+                  {s.es_propia ? ' de tu equipo' : ` del equipo de ${nombrePropio(s.invita)}`} · {formatFecha(s.creada_en)}
+                </span>
+                <dl>
+                  <div>
+                    <dt>Zona de trabajo</dt>
+                    <dd>
+                      {s.zona_trabajo ? nombrePropio(s.zona_trabajo) : 'Sin definir'}
+                      {s.municipio && s.municipio !== s.zona_trabajo ? ` · ${nombrePropio(s.municipio)}` : ''}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Puede sumar</dt>
+                    <dd>{s.meta_propuesta ? `${s.meta_propuesta.toLocaleString('es-CO')} personas` : 'No lo sabe aún'}</dd>
+                  </div>
+                  <div>
+                    <dt>Organización</dt>
+                    <dd>{s.organizacion ?? 'No informó'}</dd>
+                  </div>
+                  <div>
+                    <dt>Celular</dt>
+                    <dd>{s.telefono ? <a href={`tel:${s.telefono}`}>{s.telefono}</a> : 'No lo dio'}</dd>
+                  </div>
+                </dl>
+                {s.observacion && <small>Nota: {s.observacion}</small>}
+              </div>
+              {s.estado === 'PENDIENTE' && (s.es_propia || gestiona) && (
+                <div className="solicitud-acciones">
+                  <button type="button" className="primary-button" disabled={procesando === s.id} onClick={() => void resolver(s, true)}>
+                    {procesando === s.id ? 'Guardando...' : 'Aprobar'}
+                  </button>
+                  <button type="button" className="secondary-button" disabled={procesando === s.id} onClick={() => void resolver(s, false)}>
+                    Rechazar
+                  </button>
+                </div>
+              )}
+              {s.estado !== 'PENDIENTE' && (
+                <span className={`estado-pill ${s.estado === 'APROBADA' ? 'estado-activo' : 'estado-retirado'}`}>
+                  {s.estado === 'APROBADA' ? 'Aprobada' : 'Rechazada'} {s.resuelta_en ? `· ${formatFecha(s.resuelta_en)}` : ''}
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 

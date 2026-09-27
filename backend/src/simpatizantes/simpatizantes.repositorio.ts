@@ -115,13 +115,22 @@ export class SimpatizantesRepositorio {
 
   /**
    * Valida un enlace de registro para un visitante anónimo. Usa
-   * campana.lider_de_link() (migración 23, SECURITY DEFINER): la seguridad por
-   * fila no deja a un anónimo leer los datos del líder en personas.personas.
+   * campana.info_link_publico() (migración 33, SECURITY DEFINER): la seguridad
+   * por fila no deja a un anónimo leer los datos del líder en personas.personas.
    */
   async linkValido(db: Kysely<DB>, codigo: string) {
-    const { rows } = await sql<{ lider: string | null }>`select campana.lider_de_link(${codigo}) as lider`.execute(db);
-    const lider = rows[0]?.lider;
-    return lider ? { nombres: lider } : undefined;
+    const { rows } = await sql<{ nombre: string; cargo: string; proposito: string; cargo_invitado: string | null }>`
+      select nombre, cargo, proposito, cargo_invitado from campana.info_link_publico(${codigo})
+    `.execute(db);
+    return rows[0];
+  }
+
+  /** Tras un registro por el enlace de líderes: crea la solicitud (no hace nada si no aplica). */
+  async solicitarLiderazgo(db: Kysely<DB>, datos: { documentoHash: Buffer; codigoLink: string; zonaTrabajoId: number | null; meta: number | null; organizacion: string | null }) {
+    await sql`
+      select campana.solicitar_liderazgo('CC', ${datos.documentoHash}, ${datos.codigoLink}, ${datos.zonaTrabajoId}::integer,
+                                         ${datos.meta}::integer, ${datos.organizacion})
+    `.execute(db);
   }
 
   jornadaMasReciente(db: Kysely<DB>) {

@@ -40,7 +40,16 @@ export class SimpatizantesService {
   async validarLink(codigo: string) {
     return this.database.comoUsuario(null, async (trx) => {
       const link = await this.repo.linkValido(trx, codigo.trim().toUpperCase());
-      return link ? { valido: true, lider: link.nombres.trim().split(/\s+/)[0] } : { valido: false };
+      if (!link) return { valido: false };
+      return {
+        valido: true,
+        lider: link.nombre.trim().split(/\s+/)[0],
+        invita: link.nombre.trim(),
+        cargo: link.cargo,
+        // VOTANTE: registro de simpatizante. LIDER: además, solicitud para ser líder o sublíder.
+        proposito: link.proposito,
+        cargoInvitado: link.cargo_invitado,
+      };
     });
   }
 
@@ -50,7 +59,22 @@ export class SimpatizantesService {
 
   async autorregistro(dto: RegistroSimpatizanteDto, ip: string | null, userAgent: string | null) {
     await this.captcha.verificar(dto.captcha, ip);
-    return this.registrar(dto, dto.codigoLink, dto.canal, null, ip, userAgent, false);
+    const respuesta = await this.registrar(dto, dto.codigoLink, dto.canal, null, ip, userAgent, false);
+    // Enlace de líderes: además del registro, la solicitud para ser líder. La
+    // respuesta no cambia, para no revelar si la persona ya existía.
+    if (dto.lider && dto.codigoLink) {
+      const documentoHash = this.cifrado.hash(this.cifrado.normalizarNumero(dto.documento));
+      await this.database.comoUsuario(null, (trx) =>
+        this.repo.solicitarLiderazgo(trx, {
+          documentoHash,
+          codigoLink: dto.codigoLink!.trim().toUpperCase(),
+          zonaTrabajoId: dto.lider!.zonaTrabajoId ?? null,
+          meta: dto.lider!.metaPropuesta ?? null,
+          organizacion: dto.lider!.organizacion?.trim() || null,
+        }),
+      );
+    }
+    return respuesta;
   }
 
   async crear(dto: RegistroSimpatizanteDto, usuario: UsuarioSesion, ip: string | null, userAgent: string | null) {

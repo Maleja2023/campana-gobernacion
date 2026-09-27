@@ -3,7 +3,7 @@ import { useParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/cliente';
 import { Captcha } from '../componentes/Captcha';
-import { Cargando, ErrorEstado } from '../componentes/Estados';
+import { Cargando } from '../componentes/Estados';
 import { Icono } from '../componentes/Icono';
 import { nombrePropio } from '../util/nombres';
 
@@ -20,6 +20,11 @@ type Datos = {
   puestoNombre: string;
   necesidad: string;
   aceptaComunicaciones: boolean;
+  // Solo por el enlace de líderes
+  zonaTrabajoId: string;
+  zonaTrabajoNombre: string;
+  metaPropuesta: string;
+  organizacion: string;
 };
 
 const inicial: Datos = {
@@ -35,11 +40,29 @@ const inicial: Datos = {
   puestoNombre: '',
   necesidad: '',
   aceptaComunicaciones: false,
+  zonaTrabajoId: '',
+  zonaTrabajoNombre: '',
+  metaPropuesta: '',
+  organizacion: '',
 };
 
-// 0 nombres, 1 documento, 2 celular, 3 municipio, 4 vereda/barrio,
-// 5 puesto de votación, 6 necesidad del sector, 7 autorización, 8 resumen.
-const ULTIMO_STEP = 8;
+type Paso = 'nombre' | 'cedula' | 'celular' | 'municipio' | 'vereda' | 'puesto' | 'necesidad' | 'zona' | 'meta' | 'organizacion' | 'autorizacion' | 'resumen';
+const PASOS_VOTANTE: Paso[] = ['nombre', 'cedula', 'celular', 'municipio', 'vereda', 'puesto', 'necesidad', 'autorizacion', 'resumen'];
+// Por el enlace de líderes, además, tres preguntas sobre su trabajo como líder.
+const PASOS_LIDER: Paso[] = ['nombre', 'cedula', 'celular', 'municipio', 'vereda', 'puesto', 'necesidad', 'zona', 'meta', 'organizacion', 'autorizacion', 'resumen'];
+
+const CARGO_INVITA: Record<string, string> = { GERENTE: 'gerente', COORDINADOR: 'coordinador', LIDER: 'líder', SUBLIDER: 'sublíder' };
+const METAS = ['10', '25', '50', '100', '200'];
+const ORGANIZACIONES = [
+  'Junta de Acción Comunal',
+  'Asociación campesina o de productores',
+  'Organización de mujeres',
+  'Organización juvenil',
+  'Iglesia o grupo religioso',
+  'Gremio o sindicato',
+  'Otra organización',
+  'Ninguna',
+];
 
 export function RegistroPublicoPage() {
   const { codigo = '' } = useParams();
@@ -49,6 +72,7 @@ export function RegistroPublicoPage() {
   const configuracion = useQuery({ queryKey: ['registro-configuracion'], queryFn: api.configuracionRegistro });
 
   const [step, setStep] = useState(0);
+  const [zonaResultados, setZonaResultados] = useState<{ id: number; nombre: string }[]>([]);
   const [datos, setDatos] = useState(inicial);
   const [veredaResultados, setVeredaResultados] = useState<{ id: number; nombre: string }[]>([]);
   const [aceptaPolitica, setAceptaPolitica] = useState(false);
@@ -89,7 +113,18 @@ export function RegistroPublicoPage() {
       </div>
     );
   }
-  const lider = link.data.lider ? nombrePropio(link.data.lider) : 'tu líder';
+  const esLider = link.data.proposito === 'LIDER';
+  const pasos = esLider ? PASOS_LIDER : PASOS_VOTANTE;
+  const ULTIMO_STEP = pasos.length - 1;
+  const paso = pasos[step];
+  /** true si ya se respondió el paso (su burbuja se muestra en la conversación). */
+  const respondido = (p: Paso) => step > pasos.indexOf(p);
+  const invita = link.data.invita ? nombrePropio(link.data.invita) : link.data.lider ? nombrePropio(link.data.lider) : 'Un miembro de la campaña';
+  const cargoInvita = link.data.cargo ? CARGO_INVITA[link.data.cargo] : null;
+  const rolInvitado = link.data.cargoInvitado === 'SUBLIDER' ? 'sublíder' : 'líder';
+  const saludo = esLider
+    ? `Hola. ${invita}${cargoInvita ? `, ${cargoInvita} de la campaña,` : ''} te invita a unirte a su equipo como ${rolInvitado}. Primero te registraremos y luego te haré unas preguntas sobre tu trabajo como ${rolInvitado}.`
+    : `Hola. ${invita}${cargoInvita ? `, ${cargoInvita} de la campaña,` : ''} te invita a registrarte como simpatizante. Te haré unas preguntas cortas.`;
 
   function ir(destino: number) {
     setError('');
@@ -137,6 +172,19 @@ export function RegistroPublicoPage() {
     );
   }
 
+  async function buscarZona(texto: string) {
+    setZonaResultados(texto.length >= 3 ? await api.buscarTerritorio(texto, Number(datos.municipioId)) : []);
+  }
+
+  function elegirZona(id: string, nombre: string) {
+    setDatos({ ...datos, zonaTrabajoId: id, zonaTrabajoNombre: nombre });
+    setZonaResultados([]);
+    avanzar();
+  }
+
+  const textoZona = datos.zonaTrabajoId ? nombrePropio(datos.zonaTrabajoNombre) : 'Sin zona definida';
+  const textoMeta = datos.metaPropuesta ? `${datos.metaPropuesta} personas` : 'Aún no sé';
+
   function elegirPuesto(id: string) {
     const nombre = puestos.data?.find((p) => String(p.id) === id)?.nombre ?? '';
     setDatos({ ...datos, puestoId: id, puestoNombre: nombre });
@@ -169,6 +217,13 @@ export function RegistroPublicoPage() {
         politicaVersion: politica.data.version,
         aceptaPolitica: true,
         canal: 'CHATBOT_WEB',
+        lider: esLider
+          ? {
+              zonaTrabajoId: datos.zonaTrabajoId ? Number(datos.zonaTrabajoId) : undefined,
+              metaPropuesta: datos.metaPropuesta ? Number(datos.metaPropuesta) : undefined,
+              organizacion: datos.organizacion || undefined,
+            }
+          : undefined,
       });
       void respuesta;
       setEnviado(true);
@@ -194,6 +249,12 @@ export function RegistroPublicoPage() {
           <span className="brand-mark"><Icono nombre="escudo" tamano={19} /></span>
           <h1>Gracias por participar</h1>
           <p>Tu registro fue recibido correctamente.</p>
+          {esLider && (
+            <p>
+              Tu solicitud para ser {rolInvitado} quedó en manos de {invita}. Cuando la apruebe, te contactará y recibirás tu propio enlace para sumar
+              personas.
+            </p>
+          )}
         </section>
       </main>
     );
@@ -213,29 +274,41 @@ export function RegistroPublicoPage() {
         </header>
 
         <div className="chat-log" aria-live="polite">
-          <div className="bubble system">Hola, {lider} te invitó a hacer parte de la campaña. Te haré unas preguntas cortas.</div>
-          {step >= 1 && <div className="bubble system">¿Cuáles son tus nombres y apellidos?</div>}
-          {step >= 1 && (
+          <div className="bubble system">{saludo}</div>
+          {respondido('nombre') && <div className="bubble system">¿Cuáles son tus nombres y apellidos?</div>}
+          {respondido('nombre') && (
             <div className="bubble person">
               {datos.nombres} {datos.apellidos}
             </div>
           )}
-          {step >= 2 && <div className="bubble system">¿Cuál es tu número de cédula?</div>}
-          {step >= 2 && <div className="bubble person">{datos.documento}</div>}
-          {step >= 3 && <div className="bubble system">¿Cuál es tu celular? Es opcional.</div>}
-          {step >= 3 && <div className="bubble person">{datos.telefono || 'Prefiero no darlo'}</div>}
-          {step >= 4 && <div className="bubble system">¿En qué municipio vives?</div>}
-          {step >= 4 && <div className="bubble person">{nombrePropio(datos.municipioNombre)}</div>}
-          {step >= 5 && <div className="bubble system">¿En qué vereda o barrio?</div>}
-          {step >= 5 && <div className="bubble person">{veredaEsDistinta ? nombrePropio(datos.territorioNombre) : 'No la encontró en la búsqueda'}</div>}
-          {step >= 6 && <div className="bubble system">¿En qué puesto de votación estás inscrito?</div>}
-          {step >= 6 && <div className="bubble person">{datos.puestoNombre ? nombrePropio(datos.puestoNombre) : 'No sé, lo consulto después'}</div>}
-          {step >= 7 && <div className="bubble system">¿Cuál es la principal necesidad de tu vereda o barrio?</div>}
-          {step >= 7 && <div className="bubble person">{datos.necesidad.trim() || 'Prefiero no decirla ahora'}</div>}
+          {respondido('cedula') && <div className="bubble system">¿Cuál es tu número de cédula?</div>}
+          {respondido('cedula') && <div className="bubble person">{datos.documento}</div>}
+          {respondido('celular') && <div className="bubble system">¿Cuál es tu celular? Es opcional.</div>}
+          {respondido('celular') && <div className="bubble person">{datos.telefono || 'Prefiero no darlo'}</div>}
+          {respondido('municipio') && <div className="bubble system">¿En qué municipio vives?</div>}
+          {respondido('municipio') && <div className="bubble person">{nombrePropio(datos.municipioNombre)}</div>}
+          {respondido('vereda') && <div className="bubble system">¿En qué vereda o barrio?</div>}
+          {respondido('vereda') && <div className="bubble person">{veredaEsDistinta ? nombrePropio(datos.territorioNombre) : 'No la encontró en la búsqueda'}</div>}
+          {respondido('puesto') && <div className="bubble system">¿En qué puesto de votación estás inscrito?</div>}
+          {respondido('puesto') && <div className="bubble person">{datos.puestoNombre ? nombrePropio(datos.puestoNombre) : 'No sé, lo consulto después'}</div>}
+          {respondido('necesidad') && <div className="bubble system">¿Cuál es la principal necesidad de tu vereda o barrio?</div>}
+          {respondido('necesidad') && <div className="bubble person">{datos.necesidad.trim() || 'Prefiero no decirla ahora'}</div>}
+          {esLider && respondido('necesidad') && !respondido('zona') && (
+            <div className="bubble system">Ahora, unas preguntas sobre tu trabajo como {rolInvitado}.</div>
+          )}
+          {respondido('zona') && <div className="bubble system">¿En qué vereda o barrio vas a trabajar con tu equipo?</div>}
+          {respondido('zona') && <div className="bubble person">{textoZona}</div>}
+          {respondido('meta') && <div className="bubble system">¿Cuántas personas crees que puedes sumar a la campaña?</div>}
+          {respondido('meta') && <div className="bubble person">{textoMeta}</div>}
+          {respondido('organizacion') && <div className="bubble system">¿Haces parte de alguna organización de tu comunidad?</div>}
+          {respondido('organizacion') && <div className="bubble person">{datos.organizacion || 'Prefiero no decirlo'}</div>}
+          {paso === 'zona' && <div className="bubble system">¿En qué vereda o barrio vas a trabajar con tu equipo?</div>}
+          {paso === 'meta' && <div className="bubble system">¿Cuántas personas crees que puedes sumar a la campaña?</div>}
+          {paso === 'organizacion' && <div className="bubble system">¿Haces parte de alguna organización de tu comunidad?</div>}
         </div>
 
         <form onSubmit={step === ULTIMO_STEP ? enviar : (e) => { e.preventDefault(); avanzar(); }} className="chat-form">
-          {step === 0 && (
+          {paso === 'nombre' && (
             <>
               <label>
                 Nombres
@@ -248,7 +321,7 @@ export function RegistroPublicoPage() {
             </>
           )}
 
-          {step === 1 && (
+          {paso === 'cedula' && (
             <label>
               Número de cédula
               <input
@@ -262,7 +335,7 @@ export function RegistroPublicoPage() {
             </label>
           )}
 
-          {step === 2 && (
+          {paso === 'celular' && (
             <>
               <label>
                 Celular <span className="optional">opcional</span>
@@ -280,7 +353,7 @@ export function RegistroPublicoPage() {
             </>
           )}
 
-          {step === 3 && (
+          {paso === 'municipio' && (
             <label>
               Municipio
               <select autoFocus value={datos.municipioId} onChange={(e) => elegirMunicipio(e.target.value)} required>
@@ -294,7 +367,7 @@ export function RegistroPublicoPage() {
             </label>
           )}
 
-          {step === 4 && (
+          {paso === 'vereda' && (
             <>
               <label>
                 Busca tu vereda o barrio
@@ -313,7 +386,7 @@ export function RegistroPublicoPage() {
             </>
           )}
 
-          {step === 5 && (
+          {paso === 'puesto' && (
             <label>
               Puesto de votación
               <select autoFocus value={datos.puestoId} onChange={(e) => elegirPuesto(e.target.value)}>
@@ -334,7 +407,7 @@ export function RegistroPublicoPage() {
             </label>
           )}
 
-          {step === 6 && (
+          {paso === 'necesidad' && (
             <>
               <label>
                 Necesidad principal de tu sector <span className="optional">opcional</span>
@@ -352,7 +425,63 @@ export function RegistroPublicoPage() {
             </>
           )}
 
-          {step === 7 && (
+          {paso === 'zona' && (
+            <>
+              <button type="button" className="choice-button" onClick={() => elegirZona(datos.territorioId, datos.territorioNombre)}>
+                Donde vivo ({nombrePropio(datos.territorioNombre)})
+              </button>
+              <label>
+                O busca otra vereda o barrio de {nombrePropio(datos.municipioNombre)}
+                <input placeholder="Escribe el nombre" onChange={(e) => void buscarZona(e.target.value)} />
+              </label>
+              <div className="choice-list">
+                {zonaResultados.map((t) => (
+                  <button type="button" key={t.id} onClick={() => elegirZona(String(t.id), t.nombre)}>
+                    {nombrePropio(t.nombre)}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+
+          {paso === 'meta' && (
+            <>
+              <div className="choice-list">
+                {METAS.map((m) => (
+                  <button type="button" key={m} className={datos.metaPropuesta === m ? 'selected' : ''} onClick={() => setDatos({ ...datos, metaPropuesta: m })}>
+                    {m === '200' ? 'Más de 100' : m}
+                  </button>
+                ))}
+              </div>
+              <label>
+                Otro número <span className="optional">opcional</span>
+                <input inputMode="numeric" value={datos.metaPropuesta} onChange={(e) => setDatos({ ...datos, metaPropuesta: e.target.value.replace(/\D/g, '').slice(0, 5) })} />
+              </label>
+              <button type="button" className="choice-button" onClick={() => { setDatos({ ...datos, metaPropuesta: '' }); avanzar(); }}>
+                Aún no sé
+              </button>
+            </>
+          )}
+
+          {paso === 'organizacion' && (
+            <div className="choice-list">
+              {ORGANIZACIONES.map((o) => (
+                <button
+                  type="button"
+                  key={o}
+                  className={datos.organizacion === o ? 'selected' : ''}
+                  onClick={() => {
+                    setDatos({ ...datos, organizacion: o });
+                    avanzar();
+                  }}
+                >
+                  {o}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {paso === 'autorizacion' && (
             <div className="policy-step">
               <details>
                 <summary>Leer política de tratamiento de datos</summary>
@@ -369,7 +498,7 @@ export function RegistroPublicoPage() {
             </div>
           )}
 
-          {step === 8 && (
+          {paso === 'resumen' && (
             <div className="summary-step">
               <h2>Revisa tus respuestas</h2>
               <dl className="summary-list">
@@ -377,7 +506,7 @@ export function RegistroPublicoPage() {
                   <dt>Nombre</dt>
                   <dd>
                     {datos.nombres} {datos.apellidos}
-                    <button type="button" className="link-button" onClick={() => ir(0)}>
+                    <button type="button" className="link-button" onClick={() => ir(pasos.indexOf('nombre'))}>
                       Editar
                     </button>
                   </dd>
@@ -386,7 +515,7 @@ export function RegistroPublicoPage() {
                   <dt>Cédula</dt>
                   <dd>
                     {datos.documento}
-                    <button type="button" className="link-button" onClick={() => ir(1)}>
+                    <button type="button" className="link-button" onClick={() => ir(pasos.indexOf('cedula'))}>
                       Editar
                     </button>
                   </dd>
@@ -395,7 +524,7 @@ export function RegistroPublicoPage() {
                   <dt>Celular</dt>
                   <dd>
                     {datos.telefono || 'No informado'}
-                    <button type="button" className="link-button" onClick={() => ir(2)}>
+                    <button type="button" className="link-button" onClick={() => ir(pasos.indexOf('celular'))}>
                       Editar
                     </button>
                   </dd>
@@ -404,7 +533,7 @@ export function RegistroPublicoPage() {
                   <dt>Municipio</dt>
                   <dd>
                     {nombrePropio(datos.municipioNombre)}
-                    <button type="button" className="link-button" onClick={() => ir(3)}>
+                    <button type="button" className="link-button" onClick={() => ir(pasos.indexOf('municipio'))}>
                       Editar
                     </button>
                   </dd>
@@ -413,7 +542,7 @@ export function RegistroPublicoPage() {
                   <dt>Vereda o barrio</dt>
                   <dd>
                     {veredaEsDistinta ? nombrePropio(datos.territorioNombre) : 'A nivel de municipio (no se encontró una más específica)'}
-                    <button type="button" className="link-button" onClick={() => ir(4)}>
+                    <button type="button" className="link-button" onClick={() => ir(pasos.indexOf('vereda'))}>
                       Editar
                     </button>
                   </dd>
@@ -422,7 +551,7 @@ export function RegistroPublicoPage() {
                   <dt>Puesto de votación</dt>
                   <dd>
                     {datos.puestoNombre ? nombrePropio(datos.puestoNombre) : 'No informado'}
-                    <button type="button" className="link-button" onClick={() => ir(5)}>
+                    <button type="button" className="link-button" onClick={() => ir(pasos.indexOf('puesto'))}>
                       Editar
                     </button>
                   </dd>
@@ -431,16 +560,47 @@ export function RegistroPublicoPage() {
                   <dt>Necesidad del sector</dt>
                   <dd>
                     {datos.necesidad.trim() || 'No informada'}
-                    <button type="button" className="link-button" onClick={() => ir(6)}>
+                    <button type="button" className="link-button" onClick={() => ir(pasos.indexOf('necesidad'))}>
                       Editar
                     </button>
                   </dd>
                 </div>
+                {esLider && (
+                  <>
+                    <div>
+                      <dt>Zona de trabajo como {rolInvitado}</dt>
+                      <dd>
+                        {textoZona}
+                        <button type="button" className="link-button" onClick={() => ir(pasos.indexOf('zona'))}>
+                          Editar
+                        </button>
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Personas que puede sumar</dt>
+                      <dd>
+                        {textoMeta}
+                        <button type="button" className="link-button" onClick={() => ir(pasos.indexOf('meta'))}>
+                          Editar
+                        </button>
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Organización</dt>
+                      <dd>
+                        {datos.organizacion || 'No informada'}
+                        <button type="button" className="link-button" onClick={() => ir(pasos.indexOf('organizacion'))}>
+                          Editar
+                        </button>
+                      </dd>
+                    </div>
+                  </>
+                )}
                 <div>
                   <dt>Comunicaciones de la campaña</dt>
                   <dd>
                     {datos.aceptaComunicaciones ? 'Acepta recibirlas' : 'No desea recibirlas'}
-                    <button type="button" className="link-button" onClick={() => ir(7)}>
+                    <button type="button" className="link-button" onClick={() => ir(pasos.indexOf('autorizacion'))}>
                       Editar
                     </button>
                   </dd>
@@ -478,7 +638,7 @@ export function RegistroPublicoPage() {
               </button>
             )}
             <button className="primary-button" disabled={cargando}>
-              {cargando ? 'Enviando...' : step === ULTIMO_STEP ? 'Enviar registro' : 'Continuar'}
+              {cargando ? 'Enviando...' : step === ULTIMO_STEP ? (esLider ? 'Enviar registro y solicitud' : 'Enviar registro') : 'Continuar'}
             </button>
           </div>
         </form>

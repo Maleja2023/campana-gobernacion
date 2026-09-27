@@ -83,6 +83,11 @@ Y `32_necesidades_ia.sql`: Voz del territorio con inteligencia artificial
 (clasificación automática de necesidades e informes por municipio). La IA es
 opcional: ver `docs/inteligencia-artificial.md`.
 
+Y `33_enlace_lideres.sql`: cada coordinador y cada líder tiene dos enlaces,
+uno para votantes y otro para sumar líderes (el coordinador) o sublíderes
+(el líder). Quien entra por el segundo responde preguntas de líder y queda
+como solicitud hasta que quien lo invitó la aprueba en Mi red → Solicitudes.
+
 ## Registro sin conexión
 
 En `/registrar` se puede registrar sin señal (veredas sin cobertura):

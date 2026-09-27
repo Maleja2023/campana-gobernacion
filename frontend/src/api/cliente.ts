@@ -381,7 +381,35 @@ export type MiembroRed = {
   /** true en la fila de la persona que tiene la sesión. */
   es_propio?: boolean;
 };
-export type LinkRegistro = { valido: boolean; lider?: string };
+export type LinkRegistro = {
+  valido: boolean;
+  lider?: string;
+  /** Nombre completo y cargo de quien invita. */
+  invita?: string;
+  cargo?: string;
+  /** VOTANTE: registro de simpatizante. LIDER: además, solicitud para ser líder o sublíder. */
+  proposito?: 'VOTANTE' | 'LIDER';
+  cargoInvitado?: 'LIDER' | 'SUBLIDER' | null;
+};
+export type EnlaceLideres = { codigo: string; url: string; cargoInvitado: 'LIDER' | 'SUBLIDER'; pendientes: number };
+export type SolicitudLider = {
+  id: string;
+  persona_id: string;
+  nombre: string;
+  invita: string;
+  invita_id: string;
+  cargo_propuesto: 'LIDER' | 'SUBLIDER';
+  zona_trabajo: string | null;
+  municipio: string | null;
+  meta_propuesta: number | null;
+  organizacion: string | null;
+  estado: 'PENDIENTE' | 'APROBADA' | 'RECHAZADA';
+  creada_en: string;
+  resuelta_en: string | null;
+  observacion: string | null;
+  es_propia: boolean;
+  telefono: string | null;
+};
 export type PoliticaRegistro = { version: number; texto: string; finalidades: { codigo: string; descripcion: string }[] };
 export type RegistroRespuesta = { resultado: string; mensaje: string; persona_id?: string | null };
 export type MiLink = {
@@ -521,6 +549,13 @@ export const api = {
     cliente.post<unknown>('/red/metas/miembro', body),
   crearMetaTerritorio: (body: { territorioId: number; cantidad: number; fechaInicio: string; fechaLimite: string }) =>
     cliente.post<unknown>('/red/metas/territorio', body),
+  enlaceLideres: () => cliente.get<EnlaceLideres | null>('/red/enlace-lideres'),
+  solicitudesLider: (estado?: string) => cliente.get<SolicitudLider[]>(`/red/solicitudes${consulta({ estado })}`),
+  resolverSolicitudLider: (id: string, aprobar: boolean, observacion?: string) =>
+    cliente.post<{ aprobada: boolean; miembroId: string | null; codigoLink: string | null; urlLink: string | null }>(`/red/solicitudes/${id}/resolver`, {
+      aprobar,
+      observacion,
+    }),
   validarLink: (codigo: string) => cliente.get<LinkRegistro>(`/registro/link/${encodeURIComponent(codigo)}`),
   politicaRegistro: () => cliente.get<PoliticaRegistro>('/registro/politica'),
   registroPublico: (body: unknown) => cliente.post<RegistroRespuesta>('/registro', body),
