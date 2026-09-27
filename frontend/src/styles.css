@@ -3210,3 +3210,38 @@ tbody tr:hover td {
 .aviso-canales { padding: 10px 12px; border-radius: var(--radio-sm); background: var(--aviso-suave); color: var(--aviso-texto); }
 .estado-pill.estado-bien { background: var(--bien-suave); color: var(--bien-texto); }
 .estado-pill.estado-aviso { background: var(--aviso-suave); color: var(--aviso-texto); }
+
+/* Día D */
+.dia-d-vacio { display: flex; gap: 14px; align-items: flex-start; }
+.mis-mesas { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+.mesa-tarjeta { display: grid; gap: 6px; padding: 16px; text-align: left; background: var(--superficie); border: 1px solid var(--borde); border-radius: var(--radio); box-shadow: var(--sombra-1); cursor: pointer; }
+.mesa-tarjeta:hover { border-color: var(--acento); }
+.mesa-tarjeta strong { font-size: 20px; }
+.mesa-tarjeta > span:not(.eyebrow):not(.estado-pill) { color: var(--texto-2); font-size: 13.5px; }
+.mesa-tarjeta .estado-pill { justify-self: start; }
+.e14-form { display: grid; gap: 16px; max-width: 640px; }
+.e14-form h2 { margin: 0; }
+.e14-foto { display: grid; gap: 8px; font-weight: 600; font-size: 14px; }
+.e14-foto img { max-width: 100%; max-height: 360px; object-fit: contain; border: 1px solid var(--borde); border-radius: var(--radio-sm); background: var(--superficie-2); }
+.e14-votos { display: grid; gap: 8px; border: 0; margin: 0; padding: 0; }
+.e14-votos legend { font-weight: 600; font-size: 14px; margin-bottom: 6px; }
+.e14-votos label { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 10px; border: 1px solid var(--borde); border-radius: var(--radio-sm); }
+.e14-votos label.propio { border-color: var(--acento); background: var(--acento-suave); }
+.e14-votos label span { display: grid; font-size: 14px; }
+.e14-votos label small { color: var(--texto-3); font-size: 12px; }
+.e14-votos input { width: 96px; text-align: right; font-size: 18px; font-variant-numeric: tabular-nums; }
+.e14-total { margin: 4px 0 0; text-align: right; font-size: 15px; }
+.barra-avance { height: 10px; margin: 14px 0 18px; border-radius: 5px; background: var(--seq-0); overflow: hidden; }
+.barra-avance span { display: block; height: 100%; background: var(--acento); transition: width 0.4s; }
+.conteo-grafico { height: 300px; margin-bottom: 16px; }
+.fila-propia td { background: var(--acento-suave); font-weight: 600; }
+.fila-alerta td:nth-child(4) { color: var(--critico-texto); font-weight: 600; }
+.e14-miniatura img { max-width: 260px; max-height: 200px; border: 1px solid var(--borde); border-radius: var(--radio-sm); }
+.solicitud-acciones.columna { flex-direction: column; align-items: stretch; }
+.solicitud-datos label { display: grid; gap: 4px; font-size: 12.5px; font-weight: 600; color: var(--texto-2); max-width: 480px; }
+.fila-formulario { flex-direction: row; flex-wrap: wrap; align-items: end; gap: 12px; }
+.fila-formulario label { flex: 1 1 180px; }
+.lista-simple { list-style: none; margin: 8px 0 14px; padding: 0; }
+.lista-simple li { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 2px; border-bottom: 1px solid var(--borde); }
+.lista-simple li .estado-pill { margin-left: 8px; }
+.input-mesas { width: 90px; }

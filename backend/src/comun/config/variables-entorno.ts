@@ -140,6 +140,11 @@ export class VariablesEntorno {
   @MinLength(7)
   RESPONSABLE_TELEFONO?: string;
 
+  /** Carpeta de las fotos de los E-14 (por defecto almacen/e14). Debe estar en los respaldos. */
+  @IsOptional()
+  @MinLength(1)
+  E14_DIRECTORIO?: string;
+
   /** Mensajes a votantes. Cada canal es opcional: sin configurar, no se ofrece.
    * "consola" solo escribe en el registro de la API (para pruebas, no en producción). */
   @IsOptional()

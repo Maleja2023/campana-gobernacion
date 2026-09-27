@@ -10,6 +10,7 @@
 #   AGE_DESTINATARIO=age1...      # llave PÚBLICA. La privada NO va en el servidor.
 #   RCLONE_REMOTO=remoto:respaldos-campana   # otro proveedor (Backblaze B2, S3, etc.)
 #   AVISO_URL=https://hc-ping.com/<id>       # opcional: avisa si el respaldo no corre
+#   E14_DIRECTORIO=/opt/campana/almacen/e14  # opcional: fotos de los E-14 (Día D)
 #
 # Necesita: pg_dump, age (https://age-encryption.org), rclone y sha256sum.
 set -euo pipefail
@@ -34,13 +35,17 @@ pg_dump -Fc -d "$BASE" | age -r "$AGE_DESTINATARIO" > "$ARCHIVO.tmp"
 # Roles y permisos (sin ellos la restauración no queda igual).
 pg_dumpall --globals-only | age -r "$AGE_DESTINATARIO" > "$DESTINO/diario/globales-$FECHA.sql.age"
 mv "$ARCHIVO.tmp" "$ARCHIVO"
+# Fotos de los E-14, si las hay.
+if [ -n "${E14_DIRECTORIO:-}" ] && [ -d "$E14_DIRECTORIO" ]; then
+  tar -C "$E14_DIRECTORIO" -cf - . | age -r "$AGE_DESTINATARIO" > "$DESTINO/diario/e14-$FECHA.tar.age"
+fi
 
 TAMANO=$(stat -c %s "$ARCHIVO")
 if [ "$TAMANO" -lt 10240 ]; then
   echo "$(date -Is) ERROR: el respaldo pesa $TAMANO bytes; algo salió mal" >&2
   false
 fi
-( cd "$DESTINO/diario" && sha256sum "campana-$FECHA.dump.age" "globales-$FECHA.sql.age" > "campana-$FECHA.sha256" )
+( cd "$DESTINO/diario" && sha256sum campana-"$FECHA".dump.age globales-"$FECHA".sql.age $(ls e14-"$FECHA".tar.age 2>/dev/null) > "campana-$FECHA.sha256" )
 
 # Los domingos, una copia semanal.
 if [ "$(date +%u)" = 7 ]; then

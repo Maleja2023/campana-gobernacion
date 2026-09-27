@@ -9,3 +9,5 @@ dist/
 *.gpkg-wal
 *.gpkg-shm
 *.qgs~
+# Fotos de formularios E-14 (nunca al repositorio)
+almacen/

@@ -68,7 +68,8 @@ async function solicitar<T>(path: string, options: OpcionesSolicitud = {}, reint
       // La sesión vive en cookies httpOnly: sin esto el navegador ni las manda ni las guarda.
       credentials: 'include',
       headers: {
-        'Content-Type': 'application/json',
+        // Con FormData (fotos) el navegador pone el Content-Type con su separador.
+        ...(resto.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
         // Protección CSRF del backend: un <form> ajeno no puede fijar esta cabecera.
         'X-Requested-With': 'campana',
         ...resto.headers,
@@ -119,6 +120,14 @@ export const cliente = {
     solicitar<T>(path, { ...opciones, method: 'POST', body: JSON.stringify(body) }),
   patch: <T>(path: string, body: unknown) => solicitar<T>(path, { method: 'PATCH', body: JSON.stringify(body) }),
   archivo: (path: string, body: unknown) => solicitarArchivo(path, body),
+  borrar: <T>(path: string) => solicitar<T>(path, { method: 'DELETE' }),
+  formulario: <T>(path: string, datos: FormData) => solicitar<T>(path, { method: 'POST', body: datos }),
+  /** Imagen protegida (necesita la sesión): devuelve una URL local para <img>. */
+  imagen: async (path: string) => {
+    const r = await fetch(`${API_URL}${path}`, { credentials: 'include', headers: { 'X-Requested-With': 'campana' } });
+    if (!r.ok) throw new ApiError(r.status, mensajeDeError(r.status, await r.json().catch(() => undefined)));
+    return URL.createObjectURL(await r.blob());
+  },
 };
 
 /** Estado del proceso de acceso — ver GET /auth/yo. Mientras no sea LISTO, solo /auth/* responde. */
@@ -412,6 +421,24 @@ export type Notificacion = { id: string; tipo: string; titulo: string; cuerpo: s
 export type CanalMensaje = 'SMS' | 'EMAIL' | 'TELEGRAM';
 export type PlantillaMensaje = { id: string; nombre: string; canal_codigo: CanalMensaje; asunto: string | null; contenido: string; creada_por: string | null; autor: string | null; aprobada_en: string | null; aprobador: string | null };
 export type EnvioMensaje = { id: string; plantilla: string; canal: CanalMensaje; estado: 'BORRADOR' | 'PROGRAMADO' | 'EN_CURSO' | 'TERMINADO' | 'CANCELADO'; programado_para: string; creado_en: string; terminado_en: string | null; creado_por: string; territorios: string | null; pendientes: number; enviados: number; fallidos: number; omitidos: number; resultado: string | null };
+export type JornadaElectoral = { id: number; nombre: string; tipo_codigo: string; fecha: string; activa: boolean; corporaciones: string[] | null };
+export type OpcionVoto = { id: number; tipo: 'CANDIDATO' | 'BLANCO' | 'NULO' | 'NO_MARCADO'; nombre: string; partido: string | null; es_candidato_propio: boolean };
+export type PuestoDiaD = { puesto_id: number; puesto: string; municipio_id: number; municipio: string; mesas: number; con_testigo: number; e14_cargados: number; potencial: number | null };
+export type MesaPuesto = { mesa_id: number; numero: number; testigo_id: string | null; testigo: string | null; testigo_login: string | null; formularios: number; estado_revision: string | null };
+export type TestigoDisponible = { usuario_id: string; nombre: string; login: string; municipio: string | null; puesto: string | null; mesas: number };
+export type MiMesa = { mesa_id: number; numero: number; puesto: string; direccion: string | null; municipio: string; corporacion: string; corporacion_nombre: string; formulario_id: string | null; estado_revision: string | null; cargado_en: string | null; total_votos: number | null };
+export type FormularioRevision = { formulario_id: string; municipio: string; puesto: string; mesa: number; corporacion: string; estado_revision: 'PENDIENTE' | 'VALIDADO' | 'CON_INCONSISTENCIAS'; total_votos: number; observacion: string | null; cargado_en: string; cargado_por: string; votos: { opcion: string; votos: number }[] | null };
+export type ConteoRapido = {
+  jornada: { id: number; nombre: string; fecha: string } | null;
+  mesas: number;
+  reportadas: number;
+  validadas: number;
+  inconsistentes: number;
+  ultimo_reporte: string | null;
+  potencial: number | null;
+  opciones: { id: number; nombre: string; tipo: string; partido: string | null; es_candidato_propio: boolean; votos: number; votos_validados: number }[];
+  municipios: { municipio_id: number; nombre: string; mesas: number; reportadas: number; votos_propios: number; votos_total: number }[];
+};
 export type TerritorioCatalogo = { id: number; nombre: string; codigo_oficial: string | null };
 export type MiembroRed = {
   miembro_id: string;
@@ -598,6 +625,22 @@ export const api = {
   estadoEnvio: (id: string, estado: 'PROGRAMADO' | 'BORRADOR' | 'CANCELADO') => cliente.post<{ id: string }>(`/comunicaciones/envios/${id}/estado`, { estado }),
   consultarBaja: (token: string) => cliente.get<{ canal: CanalMensaje; descripcion: string }>(`/baja/${encodeURIComponent(token)}`),
   confirmarBaja: (token: string) => cliente.post<{ mensaje: string }>(`/baja/${encodeURIComponent(token)}`, {}),
+  diaDJornadas: () => cliente.get<JornadaElectoral[]>('/dia-d/jornadas'),
+  diaDCrearJornada: (body: { nombre: string; tipo: string; fecha: string; copiarDe: number }) => cliente.post<{ id: number }>('/dia-d/jornadas', body),
+  diaDOpciones: (corporacion: string) => cliente.get<OpcionVoto[]>(`/dia-d/opciones${consulta({ corporacion })}`),
+  diaDGuardarCandidato: (body: { corporacion: string; nombre: string; partido?: string; propio: boolean }) => cliente.post<{ id: number }>('/dia-d/candidatos', body),
+  diaDQuitarCandidato: (id: number) => cliente.borrar<{ id: number }>(`/dia-d/candidatos/${id}`),
+  diaDPuestos: (municipioId?: number) => cliente.get<PuestoDiaD[]>(`/dia-d/puestos${consulta({ municipioId })}`),
+  diaDDefinirMesas: (puestoId: number, cantidad: number) => cliente.post<unknown>(`/dia-d/puestos/${puestoId}/mesas`, { cantidad }),
+  diaDMesas: (puestoId: number) => cliente.get<MesaPuesto[]>(`/dia-d/puestos/${puestoId}/mesas`),
+  diaDTestigos: () => cliente.get<TestigoDisponible[]>('/dia-d/testigos'),
+  diaDAsignarTestigo: (mesaId: number, usuarioId: string | null) => cliente.post<unknown>(`/dia-d/mesas/${mesaId}/testigo`, { usuarioId }),
+  diaDMisMesas: () => cliente.get<MiMesa[]>('/dia-d/mis-mesas'),
+  diaDCargarE14: (datos: FormData) => cliente.formulario<{ formularioId: string; estado: string; total: number; mensaje: string }>('/dia-d/e14', datos),
+  diaDFotoE14: (id: string) => cliente.imagen(`/dia-d/e14/${id}/foto`),
+  diaDRevision: (f: { estado?: string; municipioId?: number }) => cliente.get<FormularioRevision[]>(`/dia-d/revision${consulta(f)}`),
+  diaDRevisar: (id: string, estado: string, observacion?: string) => cliente.post<unknown>(`/dia-d/e14/${id}/revision`, { estado, observacion }),
+  diaDConteo: (corporacion: string, municipioId?: number) => cliente.get<ConteoRapido>(`/dia-d/conteo${consulta({ corporacion, municipioId })}`),
   eventoPublico: (codigo: string) => cliente.get<EventoPublico>(`/eventos-publico/${encodeURIComponent(codigo)}`),
   checkinEvento: (codigo: string, body: { documento: string; nombres: string; apellidos: string; telefono?: string; territorioId: number; finalidades: string[]; politicaVersion: number; aceptaPolitica: boolean; captcha?: string }) =>
     cliente.post<{ mensaje: string }>(`/eventos-publico/${encodeURIComponent(codigo)}/checkin`, body),
