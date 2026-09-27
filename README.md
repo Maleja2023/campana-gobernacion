@@ -62,6 +62,9 @@ Y `27_coordinador_por_municipio.sql`: cada coordinador pertenece a un solo
 municipio y solo ve a los líderes de ese municipio (árbol, ranking, metas,
 inactivos y lista de líderes del registro).
 
+Luego `28_coordinador_ve_su_red.sql`: un municipio puede tener varios
+coordinadores y cada uno ve solo a sus líderes y a los votantes de ellos.
+
 ## Registro sin conexión
 
 En `/registrar` se puede registrar sin señal (veredas sin cobertura):
@@ -100,7 +103,7 @@ En `/red` (menú "Mi red"):
 | Superadministrador | Todo | Todo, incluida la administración técnica | Obligatorio |
 | Candidato | Todo el departamento (se le asigna solo) | Solo consulta y reportes | Obligatorio |
 | Gerente de campaña | Todo el departamento | Usuarios, coordinadores, metas, exportes, alertas | Obligatorio |
-| Coordinador municipal | Solo su municipio (uno, obligatorio al crearlo) y los líderes de ese municipio | Registra, edita y retira; gestiona su estructura | Obligatorio |
+| Coordinador municipal | Sus líderes y los votantes que ellos refirieron (un municipio, obligatorio; puede haber varios coordinadores por municipio) | Registra, edita y retira; gestiona su estructura | Obligatorio |
 | Líder / referidor | Solo sus referidos y su red | Registra y comparte su enlace | No |
 | Digitador | Nada (sin reportes) | Solo registra, atribuyendo a un líder de su territorio | No |
 | Testigo electoral | Solo el módulo del día de elecciones (fase 2) | — | No |
