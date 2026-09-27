@@ -74,7 +74,7 @@ Internet ──> Cloudflare (WAF, anti-DDoS, HTTPS)
    - `00_instalacion_completa.sql`
    - Importar `caqueta.gpkg` al esquema `staging` (mismos comandos `ogr2ogr` de `06_importar_gpkg.bat`).
    - `07_carga_territorio.sql`
-   - Migraciones `10` a `28`, en orden (`22_correccion_veredas.sql` solo hace falta en bases cargadas antes de la corrección de veredas).
+   - Migraciones `10` a `29`, en orden (`22_correccion_veredas.sql` solo hace falta en bases cargadas antes de la corrección de veredas).
    - **Nunca** `08_datos_demo.sql`.
 5. Crear el usuario de la API con una contraseña generada, **distinta** a la de desarrollo:
    ```sql

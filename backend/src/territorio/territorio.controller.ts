@@ -1,6 +1,7 @@
 import { BadRequestException, Controller, Get, ParseIntPipe, Query } from '@nestjs/common';
 import { Publico, RequierePermiso, UsuarioActual } from '../auth/decoradores.js';
 import type { UsuarioSesion } from '../auth/auth.types.js';
+import { MapaMunicipioQueryDto, MapaQueryDto, NecesidadesMapaQueryDto } from './dto/mapa-query.dto.js';
 import { TerritorioService } from './territorio.service.js';
 
 const TIPOS_VALIDOS = ['MUNICIPIO', 'COMUNA', 'CORREGIMIENTO', 'BARRIO', 'VEREDA', 'CENTRO_POBLADO'];
@@ -65,7 +66,38 @@ export class TerritorioController {
    */
   @RequierePermiso('MAPA_VER')
   @Get('mapa')
-  mapa(@UsuarioActual() usuario: UsuarioSesion, @Query('padre', new ParseIntPipe({ optional: true })) padre?: number) {
-    return this.territorio.mapa(usuario, padre);
+  mapa(@UsuarioActual() usuario: UsuarioSesion, @Query() q: MapaQueryDto) {
+    const { padre, ...filtros } = q;
+    return this.territorio.mapa(usuario, padre, filtros);
+  }
+
+  /** GET /api/territorio/mapa/calor?municipioId=&miembroId=&desde=&hasta= */
+  @RequierePermiso('MAPA_VER')
+  @Get('mapa/calor')
+  calor(@UsuarioActual() usuario: UsuarioSesion, @Query() q: MapaMunicipioQueryDto) {
+    const { municipioId, ...filtros } = q;
+    return this.territorio.calor(usuario, municipioId, filtros);
+  }
+
+  /** GET /api/territorio/mapa/necesidades?padre=&categoria= */
+  @RequierePermiso('MAPA_VER')
+  @Get('mapa/necesidades')
+  necesidades(@UsuarioActual() usuario: UsuarioSesion, @Query() q: NecesidadesMapaQueryDto) {
+    return this.territorio.necesidades(usuario, q.padre, q.categoria);
+  }
+
+  /** GET /api/territorio/mapa/brecha?municipioId=&miembroId=&desde=&hasta= */
+  @RequierePermiso('MAPA_VER')
+  @Get('mapa/brecha')
+  brecha(@UsuarioActual() usuario: UsuarioSesion, @Query() q: MapaMunicipioQueryDto) {
+    const { municipioId, ...filtros } = q;
+    return this.territorio.brecha(usuario, municipioId, filtros);
+  }
+
+  /** GET /api/territorio/mapa/miembros: coordinadores y líderes para filtrar. */
+  @RequierePermiso('MAPA_VER')
+  @Get('mapa/miembros')
+  miembros(@UsuarioActual() usuario: UsuarioSesion) {
+    return this.territorio.miembrosFiltro(usuario);
   }
 }

@@ -132,6 +132,30 @@ export type ZonaProperties = {
   subdivisiones: number | null;
   sinAcceso: boolean;
 };
+export type FiltrosMapa = { miembroId?: string; desde?: string; hasta?: string };
+export type PuntoCalor = { lat: number; lon: number; peso: number };
+export type NecesidadZona = { territorio_id: number; total: number; por_categoria: Record<string, number> };
+export type BrechaPuesto = {
+  puesto_id: number;
+  puesto: string;
+  municipio_id: number;
+  municipio: string;
+  potencial_electoral: number | null;
+  simpatizantes: number;
+  cobertura_pct: string | number | null;
+  lat: number | null;
+  lon: number | null;
+};
+export type MiembroFiltro = { miembro_id: string; nombre: string; cargo_codigo: string; municipio: string | null };
+
+/** Cadena de consulta con solo los valores definidos (`?a=1&b=2` o ''). */
+export function consulta(valores: Record<string, string | number | undefined | null>): string {
+  const partes = Object.entries(valores)
+    .filter(([, v]) => v !== undefined && v !== null && v !== '')
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`);
+  return partes.length ? `?${partes.join('&')}` : '';
+}
+
 export type ZonaFeature = GeoJSON.Feature<GeoJSON.Geometry, ZonaProperties> & { id: number };
 export type ZonaCollection = GeoJSON.FeatureCollection<GeoJSON.Geometry, ZonaProperties> & {
   features: ZonaFeature[];
@@ -266,7 +290,14 @@ export const api = {
   mfaVerificar: (codigo: string) => cliente.post<{ estado: EstadoSesion }>('/auth/mfa/verificar', { codigo }),
   mfaRecuperacion: (codigo: string) => cliente.post<{ mensaje: string }>('/auth/mfa/recuperacion', { codigo }),
   mfaCodigos: (codigo: string) => cliente.post<MfaConfirmacion>('/auth/mfa/codigos', { codigo }),
-  mapa: (padre?: number) => cliente.get<ZonaCollection>(padre ? `/territorio/mapa?padre=${padre}` : '/territorio/mapa'),
+  mapa: (padre?: number, filtros: FiltrosMapa = {}) => cliente.get<ZonaCollection>(`/territorio/mapa${consulta({ padre, ...filtros })}`),
+  mapaCalor: (municipioId: number | undefined, filtros: FiltrosMapa = {}) =>
+    cliente.get<PuntoCalor[]>(`/territorio/mapa/calor${consulta({ municipioId, ...filtros })}`),
+  mapaNecesidades: (padre: number | undefined, categoria?: string) =>
+    cliente.get<NecesidadZona[]>(`/territorio/mapa/necesidades${consulta({ padre, categoria })}`),
+  mapaBrecha: (municipioId: number | undefined, filtros: FiltrosMapa = {}) =>
+    cliente.get<BrechaPuesto[]>(`/territorio/mapa/brecha${consulta({ municipioId, ...filtros })}`),
+  mapaMiembros: () => cliente.get<MiembroFiltro[]>('/territorio/mapa/miembros'),
   puestos: (municipioId: number) => cliente.get<Puesto[]>(`/tablero/puestos?municipioId=${municipioId}`),
   /** Catálogo público de puestos de un municipio (formularios de registro; no exige sesión). */
   puestosCatalogo: (municipioId: number) => cliente.get<Puesto[]>(`/territorio/puestos?municipioId=${municipioId}`),

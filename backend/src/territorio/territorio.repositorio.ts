@@ -10,6 +10,12 @@ export interface ResultadoBusqueda {
   similitud: number;
 }
 
+export interface Filtros {
+  miembroId?: string;
+  desde?: string;
+  hasta?: string;
+}
+
 /** Todas las consultas SQL del módulo de territorio. Sin reglas de negocio. */
 @Injectable()
 export class TerritorioRepositorio {
@@ -98,41 +104,75 @@ export class TerritorioRepositorio {
   }
 
   /**
-   * Debe ejecutarse dentro de comoUsuario(): m.simpatizantes y sin_acceso
-   * dependen de campana.conteo_territorio_visible(), que lee app.usuario_id
-   * (migración 20). Un territorio fuera del alcance del usuario llega con
-   * simpatizantes NULL y sin_acceso true; el total del padre, igual, si el
-   * propio padre no es visible.
-   */
-  /**
+   * Debe ejecutarse dentro de comoUsuario(): los conteos salen de
+   * campana.mapa_conteos() (migración 29), que respeta la seguridad por fila
+   * (un coordinador cuenta solo su red) y aplica los filtros. Un territorio
+   * fuera del alcance del usuario llega con simpatizantes null y sinAcceso
+   * true; el total del padre, igual, si el propio padre no es visible.
+   *
    * `tolerancia` (grados) simplifica los polígonos para que el mapa cargue
    * rápido: más alta para los municipios, más baja para veredas y comunas.
    * Las zonas sin polígono oficial (comunas, corregimientos) llegan con
    * geometry null: el mapa no las dibuja, pero sí las lista.
    */
-  mapa(db: Kysely<DB>, padreId: number, tolerancia: number) {
+  mapa(db: Kysely<DB>, padreId: number, tolerancia: number, f: Filtros) {
     return sql<{ geojson: unknown; total_simpatizantes: number | null; total_sin_acceso: boolean }>`
+      with conteos as (
+        select * from campana.mapa_conteos(${padreId}, ${f.miembroId ?? null}::uuid, ${f.desde ?? null}::date, ${f.hasta ?? null}::date)
+      ), visibles as (
+        select territorio_id from acceso.territorios_visibles()
+      )
       select json_build_object(
                'type', 'FeatureCollection',
                'features', coalesce(json_agg(json_build_object(
                    'type', 'Feature',
-                   'id', m.id,
-                   'geometry', case when m.geom is not null
-                                    then ST_AsGeoJSON(ST_SimplifyPreserveTopology(m.geom, ${tolerancia}::float8), 6)::json end,
+                   'id', t.id,
+                   'geometry', case when t.geom is not null
+                                    then ST_AsGeoJSON(ST_SimplifyPreserveTopology(t.geom, ${tolerancia}::float8), 6)::json end,
                    'properties', json_build_object(
-                       'nombre', m.nombre,
-                       'tipo', m.tipo_codigo,
-                       'simpatizantes', m.simpatizantes,
-                       'subdivisiones', m.subdivisiones,
-                       'sinAcceso', m.sin_acceso)
+                       'nombre', t.nombre,
+                       'tipo', t.tipo_codigo,
+                       'simpatizantes', case when t.id in (select territorio_id from visibles) then c.simpatizantes end,
+                       'subdivisiones', (select count(*) from territorio.territorios h where h.padre_id = t.id),
+                       'sinAcceso', t.id not in (select territorio_id from visibles))
                )), '[]'::json)
              ) as geojson,
-             (select simpatizantes from campana.conteo_territorio_visible() where territorio_id = ${padreId}) as total_simpatizantes,
-             (not exists (select 1 from campana.conteo_territorio_visible() where territorio_id = ${padreId})) as total_sin_acceso
-        from territorio.v_mapa m
-       where m.padre_id = ${padreId}
+             (select c2.simpatizantes from conteos c2 where c2.territorio_id = ${padreId}
+                 and ${padreId} in (select territorio_id from visibles)) as total_simpatizantes,
+             (${padreId} not in (select territorio_id from visibles)) as total_sin_acceso
+        from territorio.territorios t
+        left join conteos c on c.territorio_id = t.id
+       where t.padre_id = ${padreId}
     `
       .execute(db)
       .then((r) => r.rows[0]);
+  }
+
+  async calor(db: Kysely<DB>, municipioId: number | undefined, f: Filtros) {
+    const { rows } = await sql<{ lat: number; lon: number; peso: number }>`
+      select lat, lon, peso from campana.mapa_calor(${municipioId ?? null}::integer, ${f.miembroId ?? null}::uuid, ${f.desde ?? null}::date, ${f.hasta ?? null}::date)
+    `.execute(db);
+    return rows;
+  }
+
+  async necesidades(db: Kysely<DB>, padreId: number, categoria: string | undefined) {
+    const { rows } = await sql<{ territorio_id: number; total: number; por_categoria: Record<string, number> }>`
+      select territorio_id, total, por_categoria from participacion.mapa_necesidades(${padreId}, ${categoria ?? null})
+    `.execute(db);
+    return rows;
+  }
+
+  async brecha(db: Kysely<DB>, municipioId: number | undefined, f: Filtros) {
+    const { rows } = await sql`
+      select puesto_id, puesto, municipio_id, municipio, potencial_electoral, simpatizantes, cobertura_pct, lat, lon
+        from campana.brecha_puestos(${municipioId ?? null}::integer, ${f.miembroId ?? null}::uuid, ${f.desde ?? null}::date, ${f.hasta ?? null}::date)
+       order by municipio, puesto
+    `.execute(db);
+    return rows;
+  }
+
+  async miembrosFiltro(db: Kysely<DB>) {
+    const { rows } = await sql`select miembro_id, nombre, cargo_codigo, municipio from campana.miembros_para_filtro()`.execute(db);
+    return rows;
   }
 }

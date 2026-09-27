@@ -65,6 +65,11 @@ inactivos y lista de líderes del registro).
 Luego `28_coordinador_ve_su_red.sql`: un municipio puede tener varios
 coordinadores y cada uno ve solo a sus líderes y a los votantes de ellos.
 
+Y `29_mapas.sql`: filtros del mapa (red de un líder o coordinador, fechas),
+mapa de calor, capa de necesidades y brecha electoral por puesto. El
+potencial electoral por puesto y los límites de barrios y comunas se cargan
+a mano: ver `docs/mapas-datos.md`.
+
 ## Registro sin conexión
 
 En `/registrar` se puede registrar sin señal (veredas sin cobertura):
