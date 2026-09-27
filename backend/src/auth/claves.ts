@@ -1,5 +1,8 @@
 import { hash, verify } from '@node-rs/argon2';
 
+/** Sin caracteres que se confunden al escribirlos a mano: I, O, 0, 1, l. */
+export const CARACTERES_SIN_CONFUSION = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
 /** Hash Argon2id de una contraseña (parámetros por defecto recomendados). */
 export function hashearClave(clave: string): Promise<string> {
   return hash(clave);
