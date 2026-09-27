@@ -1,26 +1,34 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { sql } from 'kysely';
+import { Injectable } from '@nestjs/common';
+import { NoEncontradoError } from '../comun/errores/errores-dominio.js';
 import { DatabaseService } from '../database/database.service.js';
+import { TerritorioRepositorio, type ResultadoBusqueda } from './territorio.repositorio.js';
 
-export interface ResultadoBusqueda {
-  id: number;
-  tipo: string;
-  nombre: string;
-  municipio: string | null;
-  similitud: number;
-}
+export type { ResultadoBusqueda };
 
 @Injectable()
 export class TerritorioService {
-  constructor(private readonly database: DatabaseService) {}
+  constructor(
+    private readonly database: DatabaseService,
+    private readonly repo: TerritorioRepositorio,
+  ) {}
 
   /** Buscador tolerante a tildes y errores (usa territorio.buscar). */
   async buscar(texto: string, tipo?: string, padre?: number): Promise<ResultadoBusqueda[]> {
-    const { rows } = await sql<ResultadoBusqueda>`
-      select id, tipo, nombre, municipio, similitud
-        from territorio.buscar(${texto}, ${tipo ?? null}, ${padre ?? null}::integer, 20)
-    `.execute(this.database.db);
-    return rows;
+    return this.repo.buscar(this.database.db, texto, tipo, padre);
+  }
+
+  async municipios() {
+    return this.repo.municipios(this.database.db);
+  }
+
+  async puestos(municipioId: number) {
+    return this.repo.puestos(this.database.db, municipioId);
+  }
+
+  async contorno() {
+    const fila = await this.repo.contorno(this.database.db);
+    if (!fila) throw new NoEncontradoError('No hay departamento cargado');
+    return { geojson: fila.geojson, bbox: fila.bbox };
   }
 
   /**
@@ -28,40 +36,10 @@ export class TerritorioService {
    * Sin `padre`, devuelve los municipios del departamento.
    */
   async mapa(padre?: number) {
-    const padreId =
-      padre ??
-      (
-        await this.database.db
-          .selectFrom('territorio.territorios')
-          .select('id')
-          .where('tipo_codigo', '=', 'DEPARTAMENTO')
-          .executeTakeFirst()
-      )?.id;
+    const padreId = padre ?? (await this.repo.departamentoId(this.database.db))?.id;
+    if (padreId === undefined) throw new NoEncontradoError('No hay territorio cargado');
 
-    if (padreId === undefined) {
-      throw new NotFoundException('No hay territorio cargado');
-    }
-
-    // Menos detalle en los polígonos grandes para que el mapa cargue rápido.
-    const { rows } = await sql<{ geojson: unknown }>`
-      select json_build_object(
-               'type', 'FeatureCollection',
-               'features', coalesce(json_agg(json_build_object(
-                   'type', 'Feature',
-                   'id', m.id,
-                   'geometry', ST_AsGeoJSON(ST_SimplifyPreserveTopology(m.geom, 0.0005), 6)::json,
-                   'properties', json_build_object(
-                       'nombre', m.nombre,
-                       'tipo', m.tipo_codigo,
-                       'simpatizantes', m.simpatizantes,
-                       'subdivisiones', m.subdivisiones)
-               )), '[]'::json)
-             ) as geojson
-        from territorio.v_mapa m
-       where m.padre_id = ${padreId}
-         and m.geom is not null
-    `.execute(this.database.db);
-
-    return rows[0].geojson;
+    const fila = await this.repo.mapa(this.database.db, padreId);
+    return { ...(fila.geojson as object), totalSimpatizantes: fila.total_simpatizantes };
   }
 }

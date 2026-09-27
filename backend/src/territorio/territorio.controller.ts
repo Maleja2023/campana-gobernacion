@@ -29,6 +29,24 @@ export class TerritorioController {
     return this.territorio.buscar(texto, tipo, padre);
   }
 
+  @Publico()
+  @Get('municipios')
+  municipios() {
+    return this.territorio.municipios();
+  }
+
+  @Publico()
+  @Get('puestos')
+  puestos(@Query('municipioId', ParseIntPipe) municipioId: number) {
+    return this.territorio.puestos(municipioId);
+  }
+
+  @Publico()
+  @Get('contorno')
+  contorno() {
+    return this.territorio.contorno();
+  }
+
   /**
    * GET /api/territorio/mapa            -> municipios del departamento
    * GET /api/territorio/mapa?padre=2    -> subdivisiones de ese territorio

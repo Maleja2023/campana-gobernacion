@@ -1,17 +1,12 @@
-import {
-  BadRequestException,
-  ConflictException,
-  Injectable,
-  InternalServerErrorException,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import type { Kysely } from 'kysely';
 import { randomUUID } from 'node:crypto';
-import { sql } from 'kysely';
 import { UsuarioSesion } from '../auth/auth.types.js';
 import { CifradoService } from '../cifrado/cifrado.service.js';
+import { ConflictoError, NoEncontradoError, ReglaNegocioError } from '../comun/errores/errores-dominio.js';
 import { DatabaseService } from '../database/database.service.js';
+import type { DB } from '../database/db.types.js';
 import {
   ActualizarLinkDto,
   ActualizarMiembroDto,
@@ -20,23 +15,16 @@ import {
   CrearMetaTerritorioDto,
   CrearMiembroDto,
 } from './dto/red.dto.js';
-
-interface ErrorBaseDatos {
-  code?: string;
-  constraint?: string;
-  detail?: string;
-  message?: string;
-  name?: string;
-}
+import { RedRepositorio } from './red.repositorio.js';
 
 @Injectable()
 export class RedService {
-  private readonly logger = new Logger(RedService.name);
   private readonly urlRegistroBase: string;
 
   constructor(
     private readonly database: DatabaseService,
     private readonly cifrado: CifradoService,
+    private readonly repo: RedRepositorio,
     config: ConfigService,
   ) {
     this.urlRegistroBase = config.getOrThrow<string>('URL_REGISTRO_BASE').replace(/\/$/, '');
@@ -45,17 +33,7 @@ export class RedService {
   async misLinks(usuario: UsuarioSesion) {
     return this.database.comoUsuario(usuario.id, async (trx) => {
       const miembro = await this.miembroDelUsuario(trx, usuario.id);
-      const { rows } = await sql`
-        select l.id, l.codigo, ${this.urlRegistroBase} || '/' || l.codigo as url,
-               l.es_principal, l.activo, l.creado_en, l.expira_en,
-               count(s.persona_id)::integer as simpatizantes
-          from campana.links_referido l
-          left join campana.simpatizantes s on s.link_referido_id = l.id
-         where l.miembro_id = ${miembro}
-         group by l.id, l.codigo, l.es_principal, l.activo, l.creado_en, l.expira_en
-         order by l.es_principal desc, l.creado_en
-      `.execute(trx);
-      return rows;
+      return this.repo.misLinks(trx, miembro, this.urlRegistroBase);
     });
   }
 
@@ -63,199 +41,114 @@ export class RedService {
     this.validarFechaFutura(dto.expiraEn);
     return this.database.comoUsuario(usuario.id, async (trx) => {
       const miembro = await this.miembroDelUsuario(trx, usuario.id);
-      const { rows: cantidad } = await sql<{ activos: number }>`
-        select count(*)::integer as activos
-          from campana.links_referido
-         where miembro_id = ${miembro} and activo
-      `.execute(trx);
-      if (cantidad[0].activos >= 10) throw new BadRequestException('El miembro ya tiene 10 links activos');
-      try {
-        const { rows } = await sql<{ codigo: string }>`
-          select campana.crear_link(${miembro}::uuid, false) as codigo
-        `.execute(trx);
-        return {
-          codigo: rows[0].codigo,
-          url: `${this.urlRegistroBase}/${rows[0].codigo}`,
-          es_principal: false,
-          expira_en: dto.expiraEn ?? null,
-        };
-      } catch (error) {
-        throw this.errorDeBase(error);
-      }
+      const activos = await this.repo.contarLinksActivos(trx, miembro);
+      if (activos >= 10) throw new ReglaNegocioError('El miembro ya tiene 10 links activos');
+      const codigo = await this.repo.crearLink(trx, miembro, false);
+      return { codigo, url: `${this.urlRegistroBase}/${codigo}`, es_principal: false, expira_en: dto.expiraEn ?? null };
     });
   }
 
   async actualizarLink(usuario: UsuarioSesion, linkId: string, dto: ActualizarLinkDto) {
     return this.database.comoUsuario(usuario.id, async (trx) => {
-      const link = await this.linkVisible(trx, linkId);
-      if (!link) throw new NotFoundException('Link no encontrado');
-      if (!dto.activo && link.es_principal) throw new BadRequestException('No se puede desactivar el link principal');
-      await trx.updateTable('campana.links_referido').set({ activo: dto.activo }).where('id', '=', linkId).execute();
+      const link = await this.repo.linkVisible(trx, linkId);
+      if (!link) throw new NoEncontradoError('Link no encontrado');
+      if (!dto.activo && link.es_principal) throw new ReglaNegocioError('No se puede desactivar el link principal');
+      await this.repo.actualizarLinkActivo(trx, linkId, dto.activo);
       return { id: linkId, activo: dto.activo };
     });
   }
 
   async arbol(usuario: UsuarioSesion) {
-    return this.database.comoUsuario(usuario.id, async (trx) => {
-      const { rows } = await sql`
-        select r.miembro_id, r.superior_id, r.cargo_codigo, r.nombre, r.activo,
-               r.profundidad, r.camino, k.activos, k.ultimo_registro
-          from campana.v_red_miembros r
-          left join campana.v_ranking_miembros k on k.miembro_id = r.miembro_id
-         where r.miembro_id in (select miembro_id from campana.mi_red())
-         order by r.camino
-      `.execute(trx);
-      return rows;
-    });
+    return this.database.comoUsuario(usuario.id, (trx) => this.repo.arbol(trx));
   }
 
   async crearMiembro(usuario: UsuarioSesion, dto: CrearMiembroDto) {
     return this.database.comoUsuario(usuario.id, async (trx) => {
-      const superiorVisible = await this.miembroEnRed(trx, dto.superiorId);
-      if (!superiorVisible) throw new NotFoundException('Miembro superior no encontrado');
+      if (!(await this.repo.miembroEnRed(trx, dto.superiorId))) throw new NoEncontradoError('Miembro superior no encontrado');
       await this.validarTerritorios(trx, dto.territorioIds ?? []);
 
       const documento = this.cifrado.normalizarNumero(dto.documento);
       const telefono = dto.telefono ? this.cifrado.normalizarNumero(dto.telefono) : null;
       const documentoHash = this.cifrado.hash(documento);
-      let persona = await trx
-        .selectFrom('personas.personas')
-        .select('id')
-        .where('tipo_documento_codigo', '=', 'CC')
-        .where('documento_hash', '=', documentoHash)
-        .executeTakeFirst();
 
-      try {
-        if (!persona) {
-          const personaId = randomUUID();
-          await trx.insertInto('personas.personas').values({
-              id: personaId,
-              tipo_documento_codigo: 'CC',
-              documento_hash: documentoHash,
-              documento_cifrado: this.cifrado.cifrar(documento),
-              nombres: dto.nombres.trim(),
-              apellidos: dto.apellidos.trim(),
-            }).execute();
-          persona = { id: personaId };
-        }
-        const miembroExistente = await trx
-          .selectFrom('campana.miembros')
-          .select('id')
-          .where('persona_id', '=', persona.id)
-          .executeTakeFirst();
-        if (miembroExistente) throw new ConflictException('La persona ya pertenece a la estructura');
-
-        const miembro = await trx
-          .insertInto('campana.miembros')
-          .values({ persona_id: persona.id, cargo_codigo: dto.cargo, superior_id: dto.superiorId })
-          .returning('id')
-          .executeTakeFirstOrThrow();
-        const link = await trx
-          .selectFrom('campana.links_referido')
-          .select('codigo')
-          .where('miembro_id', '=', miembro.id)
-          .where('es_principal', '=', true)
-          .executeTakeFirst();
-        if (!link) throw new InternalServerErrorException('No fue posible crear el link principal');
-        if (telefono) {
-          await trx.insertInto('personas.telefonos').values({ persona_id: persona.id, telefono_hash: this.cifrado.hash(telefono), telefono_cifrado: this.cifrado.cifrar(telefono), es_principal: true }).onConflict((oc) => oc.doNothing()).execute();
-        }
-        if (dto.territorioIds?.length) {
-          await trx.insertInto('campana.miembro_territorios').values(dto.territorioIds.map((territorioId) => ({ miembro_id: miembro.id, territorio_id: territorioId }))).execute();
-        }
-        return { miembroId: miembro.id, codigoLink: link.codigo, urlLink: `${this.urlRegistroBase}/${link.codigo}` };
-      } catch (error) {
-        throw this.errorDeBase(error);
+      let persona = await this.repo.personaPorDocumento(trx, documentoHash);
+      if (!persona) {
+        const personaId = randomUUID();
+        await this.repo.crearPersona(trx, {
+          id: personaId,
+          documentoHash,
+          documentoCifrado: this.cifrado.cifrar(documento),
+          nombres: dto.nombres.trim(),
+          apellidos: dto.apellidos.trim(),
+        });
+        persona = { id: personaId };
       }
+
+      const miembroExistente = await this.repo.miembroPorPersona(trx, persona.id);
+      if (miembroExistente) throw new ConflictoError('La persona ya pertenece a la estructura');
+
+      const miembro = await this.repo.crearMiembro(trx, { personaId: persona.id, cargo: dto.cargo, superiorId: dto.superiorId });
+      const link = await this.repo.linkPrincipalDe(trx, miembro.id);
+      if (!link) throw new Error('No fue posible crear el link principal');
+
+      if (telefono) {
+        await this.repo.crearTelefono(trx, persona.id, this.cifrado.hash(telefono), this.cifrado.cifrar(telefono));
+      }
+      if (dto.territorioIds?.length) {
+        await this.repo.asignarTerritoriosMiembro(trx, miembro.id, dto.territorioIds);
+      }
+      return { miembroId: miembro.id, codigoLink: link.codigo, urlLink: `${this.urlRegistroBase}/${link.codigo}` };
     });
   }
 
   async actualizarMiembro(usuario: UsuarioSesion, miembroId: string, dto: ActualizarMiembroDto) {
     return this.database.comoUsuario(usuario.id, async (trx) => {
       const propio = await this.miembroDelUsuario(trx, usuario.id);
-      if (propio === miembroId) throw new BadRequestException('No puede modificarse a sí mismo');
-      if (!(await this.miembroEnRed(trx, miembroId))) throw new NotFoundException('Miembro no encontrado');
-      if (dto.superiorId !== undefined && !(await this.miembroEnRed(trx, dto.superiorId))) throw new NotFoundException('Miembro superior no encontrado');
-      if (dto.activo === undefined && dto.superiorId === undefined) throw new BadRequestException('Debe indicar un cambio');
-      try {
-        const actualizado = await trx.updateTable('campana.miembros').set({ ...(dto.activo === undefined ? {} : { activo: dto.activo }), ...(dto.superiorId === undefined ? {} : { superior_id: dto.superiorId }) }).where('id', '=', miembroId).returning(['id', 'activo', 'superior_id']).executeTakeFirstOrThrow();
-        return actualizado;
-      } catch (error) {
-        throw this.errorDeBase(error);
+      if (propio === miembroId) throw new ReglaNegocioError('No puede modificarse a sí mismo');
+      if (!(await this.repo.miembroEnRed(trx, miembroId))) throw new NoEncontradoError('Miembro no encontrado');
+      if (dto.superiorId !== undefined && !(await this.repo.miembroEnRed(trx, dto.superiorId))) {
+        throw new NoEncontradoError('Miembro superior no encontrado');
       }
+      if (dto.activo === undefined && dto.superiorId === undefined) throw new ReglaNegocioError('Debe indicar un cambio');
+      return this.repo.actualizarMiembro(trx, miembroId, { activo: dto.activo, superiorId: dto.superiorId });
     });
   }
 
   async crearMetaMiembro(usuario: UsuarioSesion, dto: CrearMetaMiembroDto) {
     this.validarRango(dto.fechaInicio, dto.fechaLimite);
     return this.database.comoUsuario(usuario.id, async (trx) => {
-      if (!(await this.miembroEnRed(trx, dto.miembroId))) throw new NotFoundException('Miembro no encontrado');
-      try {
-        return await trx.insertInto('campana.metas_miembro').values({ miembro_id: dto.miembroId, cantidad: dto.cantidad, fecha_inicio: dto.fechaInicio, fecha_limite: dto.fechaLimite }).returningAll().executeTakeFirstOrThrow();
-      } catch (error) {
-        throw this.errorDeBase(error);
-      }
+      if (!(await this.repo.miembroEnRed(trx, dto.miembroId))) throw new NoEncontradoError('Miembro no encontrado');
+      return this.repo.crearMetaMiembro(trx, dto);
     });
   }
 
   async crearMetaTerritorio(usuario: UsuarioSesion, dto: CrearMetaTerritorioDto) {
     this.validarRango(dto.fechaInicio, dto.fechaLimite);
     return this.database.comoUsuario(usuario.id, async (trx) => {
-      const { rows } = await sql<{ territorio_id: number }>`
-        select territorio_id from acceso.territorios_visibles() where territorio_id = ${dto.territorioId}
-      `.execute(trx);
-      if (!rows[0]) throw new NotFoundException('Territorio no encontrado');
-      try {
-        return await trx.insertInto('campana.metas_territorio').values({ territorio_id: dto.territorioId, cantidad: dto.cantidad, fecha_inicio: dto.fechaInicio, fecha_limite: dto.fechaLimite }).returningAll().executeTakeFirstOrThrow();
-      } catch (error) {
-        throw this.errorDeBase(error);
-      }
+      if (!(await this.repo.territorioVisible(trx, dto.territorioId))) throw new NoEncontradoError('Territorio no encontrado');
+      return this.repo.crearMetaTerritorio(trx, dto);
     });
   }
 
-  private async miembroDelUsuario(trx: any, usuarioId: string): Promise<string> {
-    const miembro = await trx.selectFrom('acceso.usuarios as u').innerJoin('campana.miembros as m', 'm.persona_id', 'u.persona_id').select('m.id').where('u.id', '=', usuarioId).executeTakeFirst();
-    if (!miembro) throw new NotFoundException('El usuario no es miembro de la campaña');
+  private async miembroDelUsuario(trx: Kysely<DB>, usuarioId: string): Promise<string> {
+    const miembro = await this.repo.miembroDelUsuario(trx, usuarioId);
+    if (!miembro) throw new NoEncontradoError('El usuario no es miembro de la campaña');
     return miembro.id;
   }
 
-  private async miembroEnRed(trx: any, miembroId: string): Promise<boolean> {
-    const { rows } = await sql<{ miembro_id: string }>`select miembro_id from campana.mi_red() where miembro_id = ${miembroId}::uuid`.execute(trx);
-    return Boolean(rows[0]);
-  }
-
-  private async linkVisible(trx: any, linkId: string) {
-    const { rows } = await sql<{ id: string; es_principal: boolean }>`
-      select l.id, l.es_principal
-        from campana.links_referido l
-       where l.id = ${linkId}::uuid
-         and l.miembro_id in (select miembro_id from campana.mi_red())
-    `.execute(trx);
-    return rows[0];
-  }
-
-  private async validarTerritorios(trx: any, territorioIds: number[]) {
+  private async validarTerritorios(trx: Kysely<DB>, territorioIds: number[]) {
     if (!territorioIds.length) return;
-    const { rows } = await sql<{ territorio_id: number }>`select territorio_id from acceso.territorios_visibles() where territorio_id = any(${sql.val(territorioIds)}::integer[])`.execute(trx);
-    if (rows.length !== new Set(territorioIds).size) throw new BadRequestException('Uno o más territorios no están disponibles');
+    const visibles = await this.repo.territoriosVisiblesEntre(trx, territorioIds);
+    if (visibles.length !== new Set(territorioIds).size) throw new ReglaNegocioError('Uno o más territorios no están disponibles');
   }
 
   private validarFechaFutura(fecha?: string) {
-    if (fecha && new Date(fecha).getTime() <= Date.now()) throw new BadRequestException('La fecha de expiración debe ser futura');
+    if (fecha && new Date(fecha).getTime() <= Date.now()) throw new ReglaNegocioError('La fecha de expiración debe ser futura');
   }
 
   private validarRango(inicio: string, limite: string) {
-    if (new Date(`${limite}T00:00:00Z`) < new Date(`${inicio}T00:00:00Z`)) throw new BadRequestException('La fecha límite debe ser posterior o igual a la fecha de inicio');
-  }
-
-  private errorDeBase(error: unknown): Error {
-    const detalle = error as ErrorBaseDatos;
-    if (detalle.code === 'P0001') return new BadRequestException(detalle.message ?? 'Regla de negocio no permitida');
-    if (detalle.code === '23505') {
-      this.logger.warn(`Conflicto de unicidad en base de datos (${detalle.constraint ?? 'restricción desconocida'})`);
-      return new ConflictException('El registro ya existe');
+    if (new Date(`${limite}T00:00:00Z`) < new Date(`${inicio}T00:00:00Z`)) {
+      throw new ReglaNegocioError('La fecha límite debe ser posterior o igual a la fecha de inicio');
     }
-    this.logger.error(`Error inesperado de base de datos (${detalle.code ?? detalle.name ?? 'desconocido'})`);
-    return new InternalServerErrorException('No fue posible completar la operación');
   }
 }
