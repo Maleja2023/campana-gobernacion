@@ -21,6 +21,7 @@ import { UsuariosPage } from './paginas/UsuariosPage';
 import { DiaDPage, SinAccesoPage } from './paginas/DiaDPage';
 import { MisDatosPage, PrivacidadPage } from './paginas/PrivacidadPage';
 import { CumplimientoPage } from './paginas/CumplimientoPage';
+import { CheckinPage } from './paginas/CheckinPage';
 import { useSesion } from './sesion/SesionContext';
 
 /** A dónde debe ir el usuario mientras el proceso de acceso no esté LISTO. */
@@ -70,6 +71,7 @@ export function App() {
     <Route path="/r/:codigo" element={<RegistroPublicoPage />} />
     <Route path="/privacidad" element={<PrivacidadPage />} />
     <Route path="/mis-datos" element={<MisDatosPage />} />
+    <Route path="/e/:codigo" element={<CheckinPage />} />
     <Route element={<Protected />}>
       <Route path="/cambiar-clave" element={<CambiarClavePage />} />
       <Route path="/configurar-mfa" element={<ConfigurarMfaPage />} />
