@@ -74,7 +74,7 @@ Internet ──> Cloudflare (WAF, anti-DDoS, HTTPS)
    - `00_instalacion_completa.sql`
    - Importar `caqueta.gpkg` al esquema `staging` (mismos comandos `ogr2ogr` de `06_importar_gpkg.bat`).
    - `07_carga_territorio.sql`
-   - Migraciones `10` a `31`, en orden (`22_correccion_veredas.sql` solo hace falta en bases cargadas antes de la corrección de veredas).
+   - Migraciones `10` a `32`, en orden (`22_correccion_veredas.sql` solo hace falta en bases cargadas antes de la corrección de veredas).
    - **Nunca** `08_datos_demo.sql`.
 5. Crear el usuario de la API con una contraseña generada, **distinta** a la de desarrollo:
    ```sql
@@ -96,6 +96,7 @@ Internet ──> Cloudflare (WAF, anti-DDoS, HTTPS)
    ```
    - `NODE_ENV=production`, `TRUST_PROXY` activado, `CORS_ORIGENES` con el dominio real.
    - `TURNSTILE_SITEKEY` y `TURNSTILE_SECRETO`: créalas en el panel de Cloudflare (Turnstile → Add widget, con el dominio del formulario público). Con `COOKIE_SEGURA=true` la API no arranca sin ellas.
+   - `ANTHROPIC_API_KEY` (opcional) e `IA_MODELO`: activan la clasificación de necesidades y los informes con IA. Pasos, costos y protección de datos en `docs/inteligencia-artificial.md`.
    - Permisos del archivo: `chmod 600`, dueño `campana`.
    - **`PEPPER_HMAC` y `LLAVE_CIFRADO` no pueden cambiar nunca** una vez haya datos: sin ellas, las cédulas quedan ilegibles y los duplicados dejan de detectarse. Guarda una copia en el gestor de contraseñas y otra impresa en un lugar físico seguro.
 4. Servicio con systemd (`/etc/systemd/system/campana-api.service`):

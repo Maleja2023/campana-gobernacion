@@ -22,6 +22,7 @@ const SECCIONES: { titulo: string; opciones: Opcion[] }[] = [
     titulo: 'Territorio',
     opciones: [
       { etiqueta: 'Agenda territorial', ruta: '/agenda', permiso: 'AGENDA_VER', icono: 'agenda' },
+      { etiqueta: 'Voz del territorio', ruta: '/necesidades', permiso: 'REPORTE_VER', icono: 'chispa' },
       { etiqueta: 'Reportar necesidad', ruta: '/reportar', permiso: 'REPORTE_COMUNITARIO', icono: 'necesidad' },
       { etiqueta: 'Día de elecciones', ruta: '/dia-d', permiso: 'E14_CARGAR', icono: 'calendario' },
     ],

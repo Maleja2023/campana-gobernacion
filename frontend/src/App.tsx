@@ -13,6 +13,7 @@ import { AgendaPage } from './paginas/AgendaPage';
 import { ReportarPage } from './paginas/ReportarPage';
 import { RegistroPublicoPage } from './paginas/RegistroPublicoPage';
 import { RegistrarPage } from './paginas/RegistrarPage';
+import { NecesidadesPage } from './paginas/NecesidadesPage';
 import { RedPage } from './paginas/RedPage';
 import { ReportesPage } from './paginas/ReportesPage';
 import { SimpatizantesPage } from './paginas/SimpatizantesPage';
@@ -75,6 +76,7 @@ export function App() {
         <Route path="tablero" element={<Permission code="REPORTE_VER"><TableroPage /></Permission>} />
         <Route path="reportes" element={<Permission code="REPORTE_VER"><ReportesPage /></Permission>} />
         <Route path="agenda" element={<Permission code="AGENDA_VER"><AgendaPage /></Permission>} />
+        <Route path="necesidades" element={<Permission code="REPORTE_VER"><NecesidadesPage /></Permission>} />
         <Route path="reportar" element={<Permission code="REPORTE_COMUNITARIO"><ReportarPage /></Permission>} />
         <Route path="simpatizantes" element={<Permission code="SIMPATIZANTE_VER"><SimpatizantesPage /></Permission>} />
         <Route path="alertas" element={<Permission code="ALERTA_GESTIONAR"><AlertasPage /></Permission>} />

@@ -5,6 +5,7 @@ import type { Layer, LeafletEvent } from 'leaflet';
 import * as L from 'leaflet';
 import { api, type BrechaPuesto, type FiltrosMapa, type MiembroFiltro, type ZonaFeature, type ZonaProperties } from '../api/cliente';
 import { CapaCalor, LEYENDA_CALOR } from '../mapa/CapaCalor';
+import { CATEGORIAS_NECESIDAD } from '../util/categorias';
 import { Cargando, ErrorEstado } from '../componentes/Estados';
 import { Icono } from '../componentes/Icono';
 import { useSesion } from '../sesion/SesionContext';
@@ -24,19 +25,7 @@ const CAPAS: { clave: Capa; etiqueta: string }[] = [
   { clave: 'brecha', etiqueta: 'Brecha electoral' },
 ];
 
-export const CATEGORIAS_NECESIDAD: Record<string, string> = {
-  VIAS: 'Vías',
-  AGUA: 'Agua y saneamiento',
-  SALUD: 'Salud',
-  EDUCACION: 'Educación',
-  EMPLEO: 'Empleo',
-  SEGURIDAD: 'Seguridad',
-  VIVIENDA: 'Vivienda',
-  AGRO: 'Agro y desarrollo rural',
-  CONECTIVIDAD: 'Conectividad',
-  AMBIENTE: 'Ambiente',
-  OTRA: 'Otra',
-};
+
 
 // Necesidades: otra tonalidad (ámbar) para no confundirla con la presencia.
 const ESCALA_NECESIDADES = ['#f6f1e7', '#fbe3b4', '#f7c877', '#f0a43a', '#d9801f', '#a85a0c'];

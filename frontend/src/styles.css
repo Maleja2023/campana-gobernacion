@@ -3071,3 +3071,40 @@ tbody tr:hover td {
 .fila-inactiva td { opacity: 0.6; }
 .exportar-motivo { display: grid; gap: 8px; margin-bottom: 14px; }
 .exportar-motivo label { display: grid; gap: 6px; font-weight: 600; font-size: 13.5px; }
+
+/* ---------- Voz del territorio ---------- */
+.estado-ia { display: flex; align-items: center; gap: 14px; padding: 14px 16px; margin-bottom: 14px; border-radius: var(--radio); border: 1px solid var(--borde); background: var(--superficie); box-shadow: var(--sombra-1); color: var(--texto-2); }
+.estado-ia.activa { border-color: #c9dcf5; background: var(--acento-suave); color: var(--acento-texto); }
+.estado-ia > div { flex: 1; display: grid; gap: 3px; font-size: 13.5px; }
+.estado-ia strong { color: var(--texto); font-size: 14px; }
+.estado-ia-mensaje { font-weight: 600; }
+.matriz-necesidades th { white-space: nowrap; font-size: 11px; }
+.celda-calor { font-variant-numeric: tabular-nums; }
+.lista-necesidades { list-style: none; margin: 0; padding: 0; }
+.lista-necesidades li { display: flex; gap: 16px; align-items: flex-start; justify-content: space-between; padding: 12px 2px; border-bottom: 1px solid var(--borde); }
+.lista-necesidades li:last-child { border-bottom: 0; }
+.lista-necesidades p { margin: 0 0 3px; font-size: 14px; color: var(--texto); }
+.lista-necesidades small { color: var(--texto-3); font-size: 12px; }
+.necesidad-categoria { display: grid; gap: 4px; justify-items: end; min-width: 190px; }
+.necesidad-categoria select { min-width: 190px; }
+.informe-ia header { border-bottom: 1px solid var(--borde); padding-bottom: 12px; margin-bottom: 8px; }
+.informe-ia header h2 { margin: 2px 0 4px; font-size: 22px; }
+.informe-ia header small { color: var(--texto-3); font-size: 12.5px; }
+.markdown { font-size: 14.5px; line-height: 1.6; color: var(--texto); max-width: 860px; }
+.markdown h2, .markdown h3 { margin: 22px 0 8px; font-size: 17px; }
+.markdown h4 { margin: 16px 0 6px; font-size: 15px; }
+.markdown p { margin: 0 0 10px; }
+.markdown ul, .markdown ol { margin: 0 0 12px; padding-left: 22px; display: grid; gap: 4px; }
+.markdown blockquote { margin: 8px 0; padding: 6px 12px; border-left: 3px solid var(--borde-fuerte); color: var(--texto-2); }
+@media (max-width: 720px) {
+  .lista-necesidades li { flex-direction: column; }
+  .necesidad-categoria { justify-items: start; }
+  .estado-ia { flex-direction: column; align-items: flex-start; }
+}
+@media print {
+  .sidebar, .user-header, .agenda-tabs, .no-imprimir, .estado-ia, .page-heading, .aviso-conexion { display: none !important; }
+  .page-content { padding: 0 !important; }
+  .content-frame { margin-left: 0 !important; padding: 0 !important; }
+  body { background: #fff !important; }
+  .informe-ia { border: 0; box-shadow: none; }
+}

@@ -234,6 +234,35 @@ export type Indicadores = {
   alertas_abiertas: number | null;
   necesidades_reportadas: number | null;
 };
+export type EstadoClasificacion = {
+  iaDisponible: boolean;
+  modelo: string;
+  total: number;
+  con_categoria_origen: number;
+  clasificadas_modelo: number;
+  clasificadas_reglas: number;
+  pendientes_modelo: number;
+};
+export type NecesidadFila = {
+  necesidad_id: string;
+  descripcion: string;
+  territorio: string;
+  tipo_territorio: string;
+  municipio: string | null;
+  categoria: string | null;
+  fuente_categoria: 'ORIGEN' | 'IA' | 'REGLAS' | null;
+  confianza: string | null;
+  origen: string;
+  prioridad: string | null;
+  reportada_en: string;
+};
+export type ResumenNecesidad = { municipio_id: number | null; municipio: string | null; categoria: string; cantidad: number };
+export type InformeNecesidades = {
+  iaDisponible: boolean;
+  generando: boolean;
+  error: string | null;
+  informe: { id: number; generado_en: string; modelo: string; total_necesidades: number; contenido: string; generado_por: string } | null;
+};
 export type FiltrosReporte = { municipioId?: number; miembroId?: string; desde?: string; hasta?: string };
 export type TipoReporte = 'MUNICIPIOS' | 'LIDERES' | 'PUESTOS' | 'PROYECCION' | 'CALIDAD';
 export type FilaCalidad = {
@@ -417,6 +446,14 @@ export const api = {
   lideresRegistro: () => cliente.get<LiderRegistro[]>('/simpatizantes/lideres-registro'),
   configuracionRegistro: () => cliente.get<{ captchaSiteKey: string | null }>('/registro/configuracion'),
   documentoSimpatizante: (personaId: string) => cliente.get<DocumentoDescifrado>(`/simpatizantes/${personaId}/documento`),
+  necesidadesEstado: () => cliente.get<EstadoClasificacion>('/necesidades/clasificacion'),
+  necesidadesClasificar: () => cliente.post<{ modelo: string; clasificadas: number; fallidas: number }>('/necesidades/clasificar', {}),
+  necesidadesListado: (f: { municipioId?: number; categoria?: string; pagina?: number }) =>
+    cliente.get<{ datos: NecesidadFila[]; total: number; pagina: number; porPagina: number }>(`/necesidades${consulta({ ...f, porPagina: 30 })}`),
+  necesidadesResumen: () => cliente.get<ResumenNecesidad[]>('/necesidades/resumen'),
+  necesidadCorregir: (id: string, categoria: string) => cliente.patch<{ id: string; categoria: string }>(`/necesidades/${id}/categoria`, { categoria }),
+  necesidadesInforme: (municipioId: number) => cliente.get<InformeNecesidades>(`/necesidades/informes/${municipioId}`),
+  necesidadesGenerarInforme: (municipioId: number) => cliente.post<InformeNecesidades>(`/necesidades/informes/${municipioId}`, {}),
   reporteMunicipios: (f: FiltrosReporte) => cliente.get<FilaReporteMunicipio[]>(`/reportes/municipios${consulta(f)}`),
   reporteLideres: (f: FiltrosReporte) => cliente.get<FilaReporteLider[]>(`/reportes/lideres${consulta(f)}`),
   reportePuestos: (f: FiltrosReporte) => cliente.get<FilaReportePuesto[]>(`/reportes/puestos${consulta(f)}`),

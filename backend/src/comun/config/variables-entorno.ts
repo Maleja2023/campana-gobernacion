@@ -114,6 +114,18 @@ export class VariablesEntorno {
   @IsOptional()
   @Matches(/^\S{10,}$/, { message: 'TURNSTILE_SITEKEY no tiene un formato válido' })
   TURNSTILE_SITEKEY?: string;
+
+  /** Clave de la API de Anthropic (Claude) para clasificar necesidades y
+   * generar informes. Opcional: sin ella, las necesidades se clasifican con
+   * reglas por palabras clave y no se ofrecen informes con IA. */
+  @IsOptional()
+  @Matches(/^sk-ant-\S{10,}$/, { message: 'ANTHROPIC_API_KEY no tiene un formato válido (empieza por sk-ant-)' })
+  ANTHROPIC_API_KEY?: string;
+
+  /** Modelo de Claude a usar (por defecto claude-opus-5). */
+  @IsOptional()
+  @Matches(/^claude-[a-z0-9-]+$/, { message: 'IA_MODELO debe ser un modelo de Claude, por ejemplo claude-opus-5' })
+  IA_MODELO?: string;
 }
 
 export function validarVariablesEntorno(config: Record<string, unknown>): VariablesEntorno {

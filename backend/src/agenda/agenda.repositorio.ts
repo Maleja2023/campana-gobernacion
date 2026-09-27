@@ -135,7 +135,7 @@ export class AgendaRepositorio {
   async crearReporte(
     db: Kysely<DB>,
     id: string,
-    datos: { territorioId: number; descripcion: string; categoria: string; reportadoPor: string; prioridad: string },
+    datos: { territorioId: number; descripcion: string; categoria: string | null; reportadoPor: string; prioridad: string },
   ): Promise<void> {
     await sql`
       insert into participacion.necesidades (id, territorio_id, descripcion, categoria_codigo, origen, reportado_por, prioridad)

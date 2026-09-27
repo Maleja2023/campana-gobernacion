@@ -79,6 +79,10 @@ Y `31_calidad.sql`: la alerta de registro masivo usa la hora de captura (ya
 no salta al enviar juntos los registros hechos sin conexión) y puntaje de
 calidad de 0 a 100 por líder (Reportes → Calidad por líder).
 
+Y `32_necesidades_ia.sql`: Voz del territorio con inteligencia artificial
+(clasificación automática de necesidades e informes por municipio). La IA es
+opcional: ver `docs/inteligencia-artificial.md`.
+
 ## Registro sin conexión
 
 En `/registrar` se puede registrar sin señal (veredas sin cobertura):
@@ -173,7 +177,6 @@ exportes a Excel con motivo auditado (`POST /simpatizantes/exportar`, permisos
 
 ### Fase 2
 
-- Clasificación de necesidades con IA.
 - Eventos con QR.
 - Comunicaciones.
 - Bot de Telegram.
