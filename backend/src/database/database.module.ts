@@ -1,4 +1,4 @@
-import { Global, Inject, Module, OnApplicationShutdown } from '@nestjs/common';
+import { Global, Inject, Logger, Module, OnApplicationShutdown } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Kysely, PostgresDialect } from 'kysely';
 import pg from 'pg';
@@ -24,18 +24,24 @@ pg.types.setTypeParser(pg.types.builtins.DATE, (valor) => valor);
           // El dueño de las tablas se salta la seguridad por fila.
           throw new Error('La API no puede conectarse como "postgres". Use api_campana.');
         }
-        return new Kysely<DB>({
-          dialect: new PostgresDialect({
-            pool: new pg.Pool({
-              host: config.getOrThrow<string>('DB_HOST'),
-              port: Number(config.get<string>('DB_PORT') ?? 5432),
-              database: config.getOrThrow<string>('DB_NOMBRE'),
-              user: usuario,
-              password: config.getOrThrow<string>('DB_CLAVE'),
-              max: 10,
-            }),
-          }),
+        const pool = new pg.Pool({
+          host: config.getOrThrow<string>('DB_HOST'),
+          port: Number(config.get<string>('DB_PORT') ?? 5432),
+          database: config.getOrThrow<string>('DB_NOMBRE'),
+          user: usuario,
+          password: config.getOrThrow<string>('DB_CLAVE'),
+          max: 10,
         });
+        // Si PostgreSQL cierra una conexión (reinicio de la base, o
+        // idle_in_transaction_session_timeout cuando el proceso de la API se
+        // pausa, p. ej. al hacer clic en su ventana de comandos en Windows),
+        // pg emite 'error'. Sin quien lo escuche, ese evento tumba toda la API;
+        // así solo falla la petición en curso y el pool abre otra conexión.
+        const log = new Logger('BaseDeDatos');
+        const avisar = (error: Error) => log.warn(`Conexión con PostgreSQL cerrada: ${error.message}`);
+        pool.on('error', avisar);
+        pool.on('connect', (cliente) => cliente.on('error', avisar));
+        return new Kysely<DB>({ dialect: new PostgresDialect({ pool }) });
       },
     },
     DatabaseService,

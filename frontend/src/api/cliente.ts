@@ -53,19 +53,33 @@ interface OpcionesSolicitud extends RequestInit {
   silenciosa?: boolean;
 }
 
+const TIEMPO_MAXIMO_CONSULTA_MS = 30_000;
+
 async function solicitar<T>(path: string, options: OpcionesSolicitud = {}, reintentando = false): Promise<T> {
   const { silenciosa, ...resto } = options;
-  const response = await fetch(`${API_URL}${path}`, {
-    ...resto,
-    // La sesión vive en cookies httpOnly: sin esto el navegador ni las manda ni las guarda.
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      // Protección CSRF del backend: un <form> ajeno no puede fijar esta cabecera.
-      'X-Requested-With': 'campana',
-      ...resto.headers,
-    },
-  });
+  // Las consultas (GET) no esperan para siempre: si la API no contesta, la
+  // pantalla lo dice en vez de quedarse cargando. Las escrituras no se cortan.
+  const esConsulta = !resto.method || resto.method === 'GET';
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}${path}`, {
+      ...resto,
+      signal: resto.signal ?? (esConsulta ? AbortSignal.timeout(TIEMPO_MAXIMO_CONSULTA_MS) : undefined),
+      // La sesión vive en cookies httpOnly: sin esto el navegador ni las manda ni las guarda.
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        // Protección CSRF del backend: un <form> ajeno no puede fijar esta cabecera.
+        'X-Requested-With': 'campana',
+        ...resto.headers,
+      },
+    });
+  } catch (causa) {
+    if (causa instanceof DOMException && causa.name === 'TimeoutError') {
+      throw new ApiError(504, 'El servidor no respondió a tiempo. Revise que la API esté encendida y que su ventana no esté en pausa.');
+    }
+    throw causa;
+  }
   if (response.status === 204) return undefined as T;
   const body = await response.json().catch(() => undefined);
   if (!response.ok) {

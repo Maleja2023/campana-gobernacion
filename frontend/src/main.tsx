@@ -6,10 +6,18 @@ import 'leaflet/dist/leaflet.css';
 import '@fontsource-variable/public-sans';
 import './styles.css';
 import { App } from './App';
+import { ApiError } from './api/cliente';
 import { SesionProvider } from './sesion/SesionContext';
 
 const queryClient = new QueryClient({
-  defaultOptions: { queries: { staleTime: 30_000, retry: 1 } },
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      // Un reintento ante fallas pasajeras; no si la API ya tardó 30 s en no
+      // responder (504) ni si la respuesta fue un error de la solicitud (4xx).
+      retry: (intentos, error) => intentos < 1 && !(error instanceof ApiError && (error.status === 504 || error.status < 500)),
+    },
+  },
 });
 
 createRoot(document.getElementById('root')!).render(
