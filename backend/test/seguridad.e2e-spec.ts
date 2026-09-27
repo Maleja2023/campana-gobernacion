@@ -194,6 +194,17 @@ describe('Seguridad e2e (cuentas propias "prueba.*", nunca las de demostración)
     expect(typeof deGerente.body.totalSimpatizantes).toBe('number');
   });
 
+  it('simpatizantes: filtro por líder fuera de la red -> 404; rango de fechas invertido -> 400; filtro válido -> 200', async () => {
+    const fueraDeRed = await agenteCoordinadora.get(`/api/simpatizantes?liderId=${cuentas.gerente.miembroId}`);
+    expect(fueraDeRed.status).toBe(HttpStatus.NOT_FOUND);
+
+    const rangoInvertido = await agenteGerente.get('/api/simpatizantes?desde=2026-12-31&hasta=2026-01-01');
+    expect(rangoInvertido.status).toBe(HttpStatus.BAD_REQUEST);
+
+    const filtroValido = await agenteGerente.get(`/api/simpatizantes?liderId=${cuentas.lider.miembroId}`);
+    expect(filtroValido.status).toBe(HttpStatus.OK);
+  });
+
   it('gerente y líder obtienen conteos distintos en /tablero/indicadores', async () => {
     const deGerente = await agenteGerente.get('/api/tablero/indicadores');
     const deLider = await agenteLider.get('/api/tablero/indicadores');

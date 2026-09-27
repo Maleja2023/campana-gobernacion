@@ -1,6 +1,7 @@
 import { type FormEvent, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { api, type Simpatizante, type TerritorioCatalogo } from '../api/cliente';
+import { useSearchParams } from 'react-router';
+import { api, type MiembroRed, type Simpatizante, type TerritorioCatalogo } from '../api/cliente';
 import { Cargando, ErrorEstado } from '../componentes/Estados';
 import { useSesion } from '../sesion/SesionContext';
 
@@ -25,30 +26,57 @@ export function SimpatizantesPage() {
   const { tienePermiso } = useSesion();
   const puedeEditar = tienePermiso('SIMPATIZANTE_EDITAR');
   const puedeExportar = tienePermiso('EXPORTAR');
+  const puedeVerCedula = tienePermiso('DOCUMENTO_VER');
   const cache = useQueryClient();
+  // El mapa enlaza aquí con ?territorioId=<id>: se toma como filtro inicial
+  // una sola vez: después el usuario puede quitarlo o cambiar los demás
+  // filtros sin que la URL los pisotee en cada tecla.
+  const [searchParams] = useSearchParams();
 
   const [texto, setTexto] = useState('');
   const [textoAplicado, setTextoAplicado] = useState('');
   const [estado, setEstado] = useState('');
   const [municipioId, setMunicipioId] = useState('');
+  const [liderId, setLiderId] = useState('');
+  const [desde, setDesde] = useState('');
+  const [hasta, setHasta] = useState('');
+  const [territorioId, setTerritorioId] = useState(() => searchParams.get('territorioId') ?? '');
   const [pagina, setPagina] = useState(1);
   const [editando, setEditando] = useState<Simpatizante | null>(null);
   const [retirando, setRetirando] = useState<string>();
   const [exportando, setExportando] = useState(false);
   const [errorAccion, setErrorAccion] = useState('');
+  const [cedulaDe, setCedulaDe] = useState<{ persona_id: string; documento: string }>();
 
   const municipios = useQuery({ queryKey: ['municipios'], queryFn: api.municipios });
+  const lideres = useQuery({ queryKey: ['red-arbol'], queryFn: api.redArbol });
   const lista = useQuery({
-    queryKey: ['simpatizantes-lista', textoAplicado, estado, municipioId, pagina],
+    queryKey: ['simpatizantes-lista', textoAplicado, estado, municipioId, liderId, desde, hasta, territorioId, pagina],
     queryFn: () =>
       api.listarSimpatizantes({
         texto: textoAplicado || undefined,
         estado: estado || undefined,
         municipioId: municipioId ? Number(municipioId) : undefined,
+        liderId: liderId || undefined,
+        desde: desde || undefined,
+        hasta: hasta || undefined,
+        territorioId: territorioId ? Number(territorioId) : undefined,
         pagina,
         porPagina: POR_PAGINA,
       }),
   });
+
+  async function verCedula(s: Simpatizante) {
+    const nombre = `${s.nombres ?? ''} ${s.apellidos ?? ''}`.trim();
+    if (!window.confirm(`¿Ver la cédula de ${nombre}? Esta consulta queda registrada con tu usuario y la fecha.`)) return;
+    setErrorAccion('');
+    try {
+      const { documento } = await api.documentoSimpatizante(s.persona_id);
+      setCedulaDe({ persona_id: s.persona_id, documento });
+    } catch (cause) {
+      setErrorAccion(cause instanceof Error ? cause.message : 'No fue posible consultar la cédula.');
+    }
+  }
 
   function buscar(e: FormEvent) {
     e.preventDefault();
@@ -160,10 +188,51 @@ export function SimpatizantesPage() {
             ))}
           </select>
         </label>
+        <label>
+          Líder
+          <select value={liderId} onChange={(e) => cambiarFiltro(() => setLiderId(e.target.value))}>
+            <option value="">Todos</option>
+            {(lideres.data ?? [])
+              .filter((m: MiembroRed) => m.cargo_codigo === 'LIDER' || m.cargo_codigo === 'SUBLIDER')
+              .map((m) => (
+                <option key={m.miembro_id} value={m.miembro_id}>
+                  {m.nombre}
+                </option>
+              ))}
+          </select>
+        </label>
+        <label>
+          Desde
+          <input type="date" value={desde} onChange={(e) => cambiarFiltro(() => setDesde(e.target.value))} />
+        </label>
+        <label>
+          Hasta
+          <input type="date" value={hasta} onChange={(e) => cambiarFiltro(() => setHasta(e.target.value))} />
+        </label>
         <button type="submit" className="secondary-button">
           Buscar
         </button>
       </form>
+
+      {territorioId && (
+        <p className="territorio-elegido">
+          Filtrado por la zona seleccionada en el mapa.{' '}
+          <button type="button" className="link-button" onClick={() => cambiarFiltro(() => setTerritorioId(''))}>
+            Quitar filtro de zona
+          </button>
+        </p>
+      )}
+
+      {cedulaDe && (
+        <div className="dashboard-block success-chat" role="alertdialog" aria-label="Cédula">
+          <strong>Cédula: {cedulaDe.documento}</strong>
+          <div className="form-actions">
+            <button type="button" className="secondary-button" onClick={() => setCedulaDe(undefined)}>
+              Cerrar
+            </button>
+          </div>
+        </div>
+      )}
 
       {errorAccion && (
         <div className="form-error" role="alert">
@@ -196,7 +265,7 @@ export function SimpatizantesPage() {
                   <th>Territorio</th>
                   <th>Estado</th>
                   <th>Registrado</th>
-                  {puedeEditar && <th>Acciones</th>}
+                  {(puedeEditar || puedeVerCedula) && <th>Acciones</th>}
                 </tr>
               </thead>
               <tbody>
@@ -213,21 +282,30 @@ export function SimpatizantesPage() {
                       <span className={`estado-pill estado-${(s.estado_codigo ?? '').toLowerCase()}`}>{etiquetaEstado(s.estado_codigo)}</span>
                     </td>
                     <td>{formatFecha(s.capturado_en)}</td>
-                    {puedeEditar && (
+                    {(puedeEditar || puedeVerCedula) && (
                       <td>
                         <div className="row-actions">
-                          <button type="button" className="link-button" aria-label={`Editar a ${s.nombres} ${s.apellidos}`} onClick={() => setEditando(s)}>
-                            Editar
-                          </button>
-                          <button
-                            type="button"
-                            className="link-button danger"
-                            aria-label={`Retirar a ${s.nombres} ${s.apellidos}`}
-                            disabled={s.estado_codigo === 'RETIRADO' || retirando === s.persona_id}
-                            onClick={() => void retirar(s)}
-                          >
-                            {retirando === s.persona_id ? 'Retirando...' : 'Retirar'}
-                          </button>
+                          {puedeEditar && (
+                            <>
+                              <button type="button" className="link-button" aria-label={`Editar a ${s.nombres} ${s.apellidos}`} onClick={() => setEditando(s)}>
+                                Editar
+                              </button>
+                              <button
+                                type="button"
+                                className="link-button danger"
+                                aria-label={`Retirar a ${s.nombres} ${s.apellidos}`}
+                                disabled={s.estado_codigo === 'RETIRADO' || retirando === s.persona_id}
+                                onClick={() => void retirar(s)}
+                              >
+                                {retirando === s.persona_id ? 'Retirando...' : 'Retirar'}
+                              </button>
+                            </>
+                          )}
+                          {puedeVerCedula && (
+                            <button type="button" className="link-button" aria-label={`Ver la cédula de ${s.nombres} ${s.apellidos}`} onClick={() => void verCedula(s)}>
+                              Ver cédula
+                            </button>
+                          )}
                         </div>
                       </td>
                     )}
@@ -235,7 +313,7 @@ export function SimpatizantesPage() {
                 ))}
                 {lista.data.datos.length === 0 && (
                   <tr>
-                    <td colSpan={puedeEditar ? 5 : 4}>No se encontraron simpatizantes con estos filtros.</td>
+                    <td colSpan={puedeEditar || puedeVerCedula ? 5 : 4}>No se encontraron simpatizantes con estos filtros.</td>
                   </tr>
                 )}
               </tbody>

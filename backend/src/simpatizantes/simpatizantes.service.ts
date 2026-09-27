@@ -50,22 +50,49 @@ export class SimpatizantesService {
 
   async listar(
     usuario: UsuarioSesion,
-    filtros: { municipioId?: number; territorioId?: number; estado?: string; texto?: string; pagina: number; porPagina: number },
+    filtros: {
+      municipioId?: number;
+      territorioId?: number;
+      estado?: string;
+      texto?: string;
+      liderId?: string;
+      desde?: string;
+      hasta?: string;
+      pagina: number;
+      porPagina: number;
+    },
   ) {
+    this.validarRangoFechas(filtros.desde, filtros.hasta);
     return this.database.comoUsuario(usuario.id, async (trx) => {
       const territoriosDescendientes =
         filtros.territorioId !== undefined ? await this.repo.descendientesDe(trx, filtros.territorioId) : undefined;
+      if (filtros.liderId !== undefined && !(await this.repo.miembroEnMiRed(trx, filtros.liderId))) {
+        throw new NoEncontradoError('Líder no encontrado');
+      }
 
       const { datos, total } = await this.repo.listar(trx, {
         municipioId: filtros.municipioId,
         territoriosDescendientes,
         estado: filtros.estado,
         texto: filtros.texto,
+        liderId: filtros.liderId,
+        desde: filtros.desde,
+        hasta: filtros.hasta,
         pagina: filtros.pagina,
         porPagina: filtros.porPagina,
       });
       return { datos, total, pagina: filtros.pagina, porPagina: filtros.porPagina };
     });
+  }
+
+  private validarRangoFechas(desde?: string, hasta?: string) {
+    if (!desde && !hasta) return;
+    const inicio = desde ? new Date(`${desde}T00:00:00.000Z`) : undefined;
+    const fin = hasta ? new Date(`${hasta}T00:00:00.000Z`) : undefined;
+    if ((inicio && Number.isNaN(inicio.getTime())) || (fin && Number.isNaN(fin.getTime()))) {
+      throw new ReglaNegocioError('La fecha indicada no es válida');
+    }
+    if (inicio && fin && inicio > fin) throw new ReglaNegocioError('La fecha "desde" debe ser anterior o igual a "hasta"');
   }
 
   async documento(usuario: UsuarioSesion, personaId: string) {

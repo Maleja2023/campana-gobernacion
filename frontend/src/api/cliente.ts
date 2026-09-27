@@ -152,7 +152,17 @@ export type Simpatizante = {
   capturado_en: string | null;
 };
 export type ListaSimpatizantes = { datos: Simpatizante[]; total: number; pagina: number; porPagina: number };
-export type FiltrosSimpatizantes = { territorioId?: number; municipioId?: number; estado?: string; texto?: string; pagina?: number; porPagina?: number };
+export type FiltrosSimpatizantes = {
+  territorioId?: number;
+  municipioId?: number;
+  estado?: string;
+  texto?: string;
+  liderId?: string;
+  desde?: string;
+  hasta?: string;
+  pagina?: number;
+  porPagina?: number;
+};
 export type EditarSimpatizante = { nombres: string; apellidos: string; telefono?: string; territorioId?: number };
 export type Alerta = {
   id: string;
@@ -183,10 +193,49 @@ export type AgendaCompromiso = { id: string; descripcion: string | null; estado:
 export type AgendaCatalogos = { eventos: { codigo: string; nombre: string }[]; organizaciones: { codigo: string; nombre: string }[]; categorias: { codigo: string; nombre: string }[]; propuestas: { id: string; titulo: string }[] };
 export type AgendaDetalle = { visita: AgendaVisita; lideres: { nombre: string; cargo: string }[]; organizaciones: { nombre: string; tipo: string }[]; planteamientos: { id: string; descripcion: string; categoria_codigo: string | null; prioridad: string | null }[]; compromisos: AgendaCompromiso[] };
 export type TerritorioCatalogo = { id: number; nombre: string; codigo_oficial: string | null };
-export type MiembroRed = { miembro_id: string; nombre: string; cargo_codigo: string; activo: boolean };
+export type MiembroRed = {
+  miembro_id: string;
+  superior_id: string | null;
+  cargo_codigo: string;
+  nombre: string;
+  activo: boolean;
+  profundidad: number;
+  camino: string[];
+  activos: number | null;
+  ultimo_registro: string | null;
+};
 export type LinkRegistro = { valido: boolean; lider?: string };
 export type PoliticaRegistro = { version: number; texto: string; finalidades: { codigo: string; descripcion: string }[] };
 export type RegistroRespuesta = { resultado: string; mensaje: string; persona_id?: string | null };
+export type MiLink = {
+  id: string;
+  codigo: string;
+  url: string;
+  es_principal: boolean;
+  activo: boolean;
+  creado_en: string;
+  expira_en: string | null;
+  simpatizantes: number;
+};
+export type NuevoLink = { codigo: string; url: string; es_principal: boolean; expira_en: string | null };
+export type NuevoMiembroRespuesta = { miembroId: string; codigoLink: string; urlLink: string };
+export type RolAsignable = { codigo: string; nombre: string; descripcion: string };
+export type UsuarioFila = {
+  id: string;
+  login: string;
+  nombres: string;
+  apellidos: string;
+  activo: boolean;
+  debe_cambiar_clave: boolean;
+  roles: { codigo: string; nombre: string }[];
+  territorios: { id: number; nombre: string }[];
+  cargo: string | null;
+  ultimo_ingreso: string | null;
+};
+export type ListaUsuarios = { datos: UsuarioFila[]; total: number; pagina: number; porPagina: number };
+export type NuevoUsuario = { usuarioId: string; login: string; claveTemporal: string };
+export type ClaveTemporal = { claveTemporal: string };
+export type DocumentoDescifrado = { documento: string };
 
 export const api = {
   iniciarSesion: (login: string, clave: string) => cliente.post<LoginResponse>('/auth/login', { login, clave }),
@@ -210,12 +259,16 @@ export const api = {
     if (filtros.municipioId !== undefined) q.set('municipioId', String(filtros.municipioId));
     if (filtros.estado) q.set('estado', filtros.estado);
     if (filtros.texto) q.set('texto', filtros.texto);
+    if (filtros.liderId) q.set('liderId', filtros.liderId);
+    if (filtros.desde) q.set('desde', filtros.desde);
+    if (filtros.hasta) q.set('hasta', filtros.hasta);
     q.set('pagina', String(filtros.pagina ?? 1));
     q.set('porPagina', String(filtros.porPagina ?? 20));
     return cliente.get<ListaSimpatizantes>(`/simpatizantes?${q.toString()}`);
   },
   editarSimpatizante: (personaId: string, body: EditarSimpatizante) => cliente.patch<{ mensaje: string }>(`/simpatizantes/${personaId}`, body),
   retirarSimpatizante: (personaId: string) => cliente.post<{ mensaje: string }>(`/simpatizantes/${personaId}/retirar`, {}),
+  documentoSimpatizante: (personaId: string) => cliente.get<DocumentoDescifrado>(`/simpatizantes/${personaId}/documento`),
   exportarSimpatizantes: (body: { motivo: string; territorioId?: number; municipioId?: number; estado?: string; texto?: string }) =>
     cliente.archivo('/simpatizantes/exportar', body),
   alertas: (estado?: string) => cliente.get<Alerta[]>(`/calidad/alertas${estado ? `?estado=${estado}` : ''}`),
@@ -243,8 +296,41 @@ export const api = {
   municipios: () => cliente.get<TerritorioCatalogo[]>('/territorio/municipios'),
   buscarTerritorio: (texto: string, padre?: number) => cliente.get<{ id: number; tipo: string; nombre: string; municipio: string | null }[]>(`/territorio/buscar?q=${encodeURIComponent(texto)}${padre ? `&padre=${padre}` : ''}`),
   redArbol: () => cliente.get<MiembroRed[]>('/red/arbol'),
+  misLinks: () => cliente.get<MiLink[]>('/red/mis-links'),
+  crearLink: (expiraEn?: string) => cliente.post<NuevoLink>('/red/mis-links', expiraEn ? { expiraEn } : {}),
+  actualizarLink: (linkId: string, activo: boolean) => cliente.patch<{ id: string; activo: boolean }>(`/red/links/${linkId}`, { activo }),
+  crearMiembro: (body: {
+    documento: string;
+    nombres: string;
+    apellidos: string;
+    telefono?: string;
+    cargo: 'COORDINADOR' | 'LIDER' | 'SUBLIDER';
+    superiorId: string;
+    territorioIds?: number[];
+  }) => cliente.post<NuevoMiembroRespuesta>('/red/miembros', body),
+  actualizarMiembro: (miembroId: string, body: { activo?: boolean; superiorId?: string }) =>
+    cliente.patch<{ id: string; activo: boolean; superior_id: string | null }>(`/red/miembros/${miembroId}`, body),
+  crearMetaMiembro: (body: { miembroId: string; cantidad: number; fechaInicio: string; fechaLimite: string }) =>
+    cliente.post<unknown>('/red/metas/miembro', body),
+  crearMetaTerritorio: (body: { territorioId: number; cantidad: number; fechaInicio: string; fechaLimite: string }) =>
+    cliente.post<unknown>('/red/metas/territorio', body),
   validarLink: (codigo: string) => cliente.get<LinkRegistro>(`/registro/link/${encodeURIComponent(codigo)}`),
   politicaRegistro: () => cliente.get<PoliticaRegistro>('/registro/politica'),
   registroPublico: (body: unknown) => cliente.post<RegistroRespuesta>('/registro', body),
   registroInterno: (body: unknown) => cliente.post<RegistroRespuesta>('/simpatizantes', body),
+  usuarios: (filtros: { texto?: string; activo?: boolean; pagina?: number; porPagina?: number }) => {
+    const q = new URLSearchParams();
+    if (filtros.texto) q.set('texto', filtros.texto);
+    if (filtros.activo !== undefined) q.set('activo', String(filtros.activo));
+    q.set('pagina', String(filtros.pagina ?? 1));
+    q.set('porPagina', String(filtros.porPagina ?? 20));
+    return cliente.get<ListaUsuarios>(`/usuarios?${q.toString()}`);
+  },
+  rolesAsignables: () => cliente.get<RolAsignable[]>('/usuarios/roles-asignables'),
+  crearUsuario: (body: { login: string; roles: string[]; territorioIds: number[]; miembroId?: string; documento?: string; nombres?: string; apellidos?: string }) =>
+    cliente.post<NuevoUsuario>('/usuarios', body),
+  actualizarUsuario: (usuarioId: string, body: { activo?: boolean; roles?: string[]; territorioIds?: number[] }) =>
+    cliente.patch<{ usuarioId: string; activo: boolean; roles: string[]; territorioIds: number[] }>(`/usuarios/${usuarioId}`, body),
+  restablecerClave: (usuarioId: string) => cliente.post<ClaveTemporal>(`/usuarios/${usuarioId}/restablecer-clave`, {}),
+  restablecerMfa: (usuarioId: string) => cliente.post<{ mensaje: string }>(`/usuarios/${usuarioId}/restablecer-mfa`, {}),
 };

@@ -8,13 +8,14 @@ import { ConfigurarMfaPage } from './paginas/ConfigurarMfaPage';
 import { VerificarMfaPage } from './paginas/VerificarMfaPage';
 import { LoginPage } from './paginas/LoginPage';
 import { MapaPage } from './paginas/MapaPage';
-import { MarcadorPage } from './paginas/MarcadorPage';
 import { TableroPage } from './paginas/TableroPage';
 import { AgendaPage } from './paginas/AgendaPage';
 import { ReportarPage } from './paginas/ReportarPage';
 import { RegistroPublicoPage } from './paginas/RegistroPublicoPage';
 import { RegistrarPage } from './paginas/RegistrarPage';
+import { RedPage } from './paginas/RedPage';
 import { SimpatizantesPage } from './paginas/SimpatizantesPage';
+import { UsuariosPage } from './paginas/UsuariosPage';
 import { useSesion } from './sesion/SesionContext';
 
 /** A dónde debe ir el usuario mientras el proceso de acceso no esté LISTO. */
@@ -56,9 +57,9 @@ export function App() {
         <Route path="reportar" element={<Permission code="REPORTE_COMUNITARIO"><ReportarPage /></Permission>} />
         <Route path="simpatizantes" element={<Permission code="SIMPATIZANTE_VER"><SimpatizantesPage /></Permission>} />
         <Route path="alertas" element={<Permission code="ALERTA_GESTIONAR"><AlertasPage /></Permission>} />
-        <Route path="red" element={<Permission code="REPORTE_VER"><MarcadorPage titulo="Mi red" /></Permission>} />
+        <Route path="red" element={<Permission code="REPORTE_VER"><RedPage /></Permission>} />
         <Route path="registrar" element={<Permission code="SIMPATIZANTE_CREAR"><RegistrarPage /></Permission>} />
-        <Route path="usuarios" element={<Permission code="USUARIO_GESTIONAR"><MarcadorPage titulo="Administración de usuarios" /></Permission>} />
+        <Route path="usuarios" element={<Permission code="USUARIO_GESTIONAR"><UsuariosPage /></Permission>} />
       </Route>
     </Route>
     <Route path="*" element={<Navigate to="/" replace />} />

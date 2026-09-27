@@ -36,6 +36,9 @@ export interface FiltrosListado {
   territoriosDescendientes?: number[];
   estado?: string;
   texto?: string;
+  liderId?: string;
+  desde?: string;
+  hasta?: string;
   pagina: number;
   porPagina: number;
 }
@@ -125,6 +128,12 @@ export class SimpatizantesRepositorio {
     return rows.map((r) => r.territorio_id);
   }
 
+  /** true si `miembroId` está dentro de la red del usuario de la sesión (campana.mi_red()). */
+  async miembroEnMiRed(db: Kysely<DB>, miembroId: string): Promise<boolean> {
+    const { rows } = await sql`select 1 from campana.mi_red() where miembro_id = ${miembroId}::uuid`.execute(db);
+    return rows.length > 0;
+  }
+
   async registrar(db: Kysely<DB>, datos: DatosRegistro): Promise<ResultadoRegistro> {
     const { rows } = await sql<ResultadoRegistro>`
       select * from campana.registrar_simpatizante(
@@ -162,6 +171,18 @@ export class SimpatizantesRepositorio {
       const patron = `%${filtros.texto}%`;
       consulta = consulta.where((eb) => eb.or([eb('nombres', 'ilike', patron), eb('apellidos', 'ilike', patron)]));
       conteo = conteo.where((eb) => eb.or([eb('nombres', 'ilike', patron), eb('apellidos', 'ilike', patron)]));
+    }
+    if (filtros.liderId !== undefined) {
+      consulta = consulta.where('referido_por_miembro_id', '=', filtros.liderId);
+      conteo = conteo.where('referido_por_miembro_id', '=', filtros.liderId);
+    }
+    if (filtros.desde !== undefined) {
+      consulta = consulta.where(sql`capturado_en::date`, '>=', filtros.desde);
+      conteo = conteo.where(sql`capturado_en::date`, '>=', filtros.desde);
+    }
+    if (filtros.hasta !== undefined) {
+      consulta = consulta.where(sql`capturado_en::date`, '<=', filtros.hasta);
+      conteo = conteo.where(sql`capturado_en::date`, '<=', filtros.hasta);
     }
 
     const [datos, total] = await Promise.all([

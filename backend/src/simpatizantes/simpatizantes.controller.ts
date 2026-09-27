@@ -50,12 +50,18 @@ export class SimpatizantesController {
     @Query('porPagina', new ParseIntPipe({ optional: true })) porPagina = 20,
     @Query('estado') estado?: string,
     @Query('texto') texto?: string,
+    @Query('liderId', new ParseUUIDPipe({ optional: true })) liderId?: string,
+    @Query('desde') desde?: string,
+    @Query('hasta') hasta?: string,
   ) {
     return this.simpatizantes.listar(usuario, {
       municipioId,
       territorioId,
       estado,
       texto: texto?.trim(),
+      liderId,
+      desde,
+      hasta,
       pagina: Math.max(1, pagina),
       porPagina: Math.min(100, Math.max(1, porPagina)),
     });
