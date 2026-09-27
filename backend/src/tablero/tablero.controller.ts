@@ -30,6 +30,12 @@ export class TableroController {
     return this.tablero.ranking(usuario, query.limite);
   }
 
+  @Get('configuracion')
+  @RequierePermiso('REPORTE_VER')
+  configuracion(@UsuarioActual() usuario: UsuarioSesion) {
+    return this.tablero.configuracion(usuario);
+  }
+
   @Get('lideres-inactivos')
   @RequierePermiso('REPORTE_VER')
   lideresInactivos(@UsuarioActual() usuario: UsuarioSesion) {

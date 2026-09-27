@@ -29,6 +29,8 @@ export interface DatosRegistro {
   lat: number | null;
   ip: string | null;
   userAgent: string | null;
+  /** Hora de captura en el dispositivo (registro sin conexión). null = ahora. */
+  capturadoEn: Date | null;
 }
 
 export interface FiltrosListado {
@@ -158,7 +160,7 @@ export class SimpatizantesRepositorio {
         ${datos.nombres}, ${datos.apellidos},
         ${datos.telefonoHash}, ${datos.telefonoCifrado},
         ${datos.territorioId}, ${datos.codigoLink}, ${datos.canal}, ${datos.politicaVersion}::smallint,
-        ${sql.val(datos.finalidades)}::text[], ${datos.aceptacionTexto}, now(),
+        ${sql.val(datos.finalidades)}::text[], ${datos.aceptacionTexto}, coalesce(${datos.capturadoEn}::timestamptz, now()),
         ${datos.jornadaId}::smallint, ${datos.puestoId}::integer,
         ${datos.necesidad}, ${datos.categoria},
         ${datos.lon}::double precision, ${datos.lat}::double precision,

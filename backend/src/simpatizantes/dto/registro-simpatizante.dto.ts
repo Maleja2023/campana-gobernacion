@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import {
+  IsISO8601,
   ArrayNotEmpty,
   ArrayUnique,
   IsArray,
@@ -75,6 +76,12 @@ export class RegistroSimpatizanteDto {
 
   @IsIn(['FORMULARIO_WEB', 'CHATBOT_WEB'])
   canal!: 'FORMULARIO_WEB' | 'CHATBOT_WEB';
+
+  /** Hora en que se capturó el registro en el dispositivo (registro sin
+   * conexión que se envía después). Solo lo acepta el registro asistido. */
+  @IsOptional()
+  @IsISO8601({ strict: true })
+  capturadoEn?: string;
 
   /** Token de Cloudflare Turnstile. Lo exige el registro público cuando el captcha está activo. */
   @IsOptional()

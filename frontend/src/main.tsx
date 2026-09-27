@@ -19,3 +19,11 @@ createRoot(document.getElementById('root')!).render(
     </QueryClientProvider>
   </StrictMode>,
 );
+
+// Guarda la aplicación en el dispositivo para abrirla sin conexión (solo en
+// producción: en desarrollo Vite sirve los archivos de otra forma).
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => undefined);
+  });
+}

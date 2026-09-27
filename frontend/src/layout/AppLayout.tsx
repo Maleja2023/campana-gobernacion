@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router';
 import { Icono, type NombreIcono } from '../componentes/Icono';
+import { usePendientes } from '../offline/usePendientes';
 import { useSesion } from '../sesion/SesionContext';
 import { nombrePropio } from '../util/nombres';
 
@@ -53,6 +54,8 @@ export function AppLayout() {
   const [abierto, setAbierto] = useState(false);
   const { usuario, tienePermiso, cerrar, avisoInactividad } = useSesion();
   const navigate = useNavigate();
+  // Envía solos los registros guardados sin conexión, desde cualquier pantalla.
+  const { pendientes, enLinea } = usePendientes(usuario?.id, { enviarSolo: true });
   const nombre = nombrePropio(`${usuario?.nombres ?? ''} ${usuario?.apellidos ?? ''}`.trim());
   const rol = usuario?.roles.map((r) => ROLES[r] ?? nombrePropio(r.replaceAll('_', ' '))).join(', ') || 'Usuario';
   const territorio = usuario?.territorios[0] ? nombrePropio(usuario.territorios[0].nombre) : null;
@@ -124,6 +127,16 @@ export function AppLayout() {
               Sesión de <strong>{nombre}</strong>
             </span>
             <span className="role-pill">{rol}</span>
+            {!enLinea && (
+              <span className="pill-conexion" role="status">
+                <Icono nombre="alerta" tamano={13} /> Sin conexión
+              </span>
+            )}
+            {pendientes.length > 0 && (
+              <button type="button" className="pill-pendientes" onClick={() => navigate('/registrar')} title="Registros guardados en este celular">
+                {pendientes.length} por enviar
+              </button>
+            )}
           </div>
           <div className="user-actions">
             <button type="button" onClick={() => navigate('/cambiar-clave')} title="Cambiar contraseña">

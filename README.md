@@ -54,6 +54,41 @@ Y por último `24_historial_y_registro.sql`: crea el historial de cambios de cad
 simpatizante (registro, ediciones, retiro con su motivo y reactivación) y la
 lista de líderes que un digitador puede elegir según su territorio.
 
+Luego `25_registro_sin_conexion.sql` (guarda la hora real de captura de los
+registros hechos sin señal) y `26_alcance_red.sql` (ranking, metas y alertas de
+líderes inactivos muestran solo la red que cada usuario puede ver).
+
+## Registro sin conexión
+
+En `/registrar` se puede registrar sin señal (veredas sin cobertura):
+
+- La aplicación se instala en el celular ("Agregar a pantalla de inicio") y abre
+  sin conexión si la persona usó la app en los últimos 30 minutos.
+- Municipios, veredas, puestos y líderes se descargan al abrir el formulario con
+  señal y quedan guardados en el celular.
+- Cada registro sin señal se guarda **cifrado** (AES-GCM, llave no exportable del
+  navegador) y se envía solo al volver la señal, con la hora real de captura.
+  La autorización de datos queda con esa hora y el historial dice
+  "Capturado sin conexión".
+- Si la cédula ya estaba registrada, el pendiente sale de la lista (no se duplica).
+  Si la API lo rechaza (datos inválidos, líder fuera de alcance, más de 30 días
+  guardado), queda marcado en "Por enviar" para revisarlo o descartarlo. Cerrar sesión **no** borra los pendientes: se envían al volver a entrar.
+- Solo funciona con el frontend compilado (`npm run build`), no con `npm run dev`.
+
+## Red de referidos
+
+En `/red` (menú "Mi red"):
+
+- **Mi enlace**: enlace y código QR personal, copiar, compartir por WhatsApp,
+  descargar el QR o una tarjeta para imprimir, y enlaces adicionales con vencimiento.
+- **Árbol de la red**: coordinador → líder → sublíder → votantes, con el total de
+  cada red, su meta y la lista de votantes referidos. Quien gestiona miembros puede
+  agregarlos, desactivarlos o moverlos bajo otro superior.
+- **Metas**: avance por líder y por municipio, y asignación de metas.
+- **Ranking**: ranking total o de los últimos 7 días, con reconocimientos (podio,
+  líder de la semana, meta cumplida, mitad del camino), y alerta de líderes sin
+  registros en los últimos `LIDER_INACTIVO_DIAS` días (parámetro, 7 por defecto).
+
 ## Roles
 
 | Rol | Qué ve | Qué hace | Doble factor |
@@ -122,4 +157,3 @@ exportes a Excel con motivo auditado (`POST /simpatizantes/exportar`, permisos
 - Comunicaciones.
 - Bot de Telegram.
 - Día D.
-- Registro sin conexión.

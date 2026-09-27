@@ -42,6 +42,14 @@ export class TerritorioController {
     return this.territorio.puestos(municipioId);
   }
 
+  /** GET /api/territorio/catalogo-registro — municipios, zonas y puestos para
+   * registrar sin conexión. Público: son datos oficiales, sin datos personales. */
+  @Publico()
+  @Get('catalogo-registro')
+  catalogoRegistro() {
+    return this.territorio.catalogoRegistro();
+  }
+
   @Publico()
   @Get('contorno')
   contorno() {

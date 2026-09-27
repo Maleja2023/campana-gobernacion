@@ -74,7 +74,7 @@ Internet ──> Cloudflare (WAF, anti-DDoS, HTTPS)
    - `00_instalacion_completa.sql`
    - Importar `caqueta.gpkg` al esquema `staging` (mismos comandos `ogr2ogr` de `06_importar_gpkg.bat`).
    - `07_carga_territorio.sql`
-   - Migraciones `10` a `16`, en orden.
+   - Migraciones `10` a `26`, en orden (`22_correccion_veredas.sql` solo hace falta en bases cargadas antes de la corrección de veredas).
    - **Nunca** `08_datos_demo.sql`.
 5. Crear el usuario de la API con una contraseña generada, **distinta** a la de desarrollo:
    ```sql
@@ -153,6 +153,12 @@ Internet ──> Cloudflare (WAF, anti-DDoS, HTTPS)
 
        root /opt/campana/frontend;
        location / { try_files $uri /index.html; }
+
+       # Registro sin conexión: el service worker y el index.html nunca se
+       # guardan en caché del navegador/Cloudflare, para que cada versión
+       # nueva llegue a los celulares. (`expires` no borra las cabeceras de arriba.)
+       location = /sw.js      { expires -1; }
+       location = /index.html { expires -1; }
 
        location /api/ {
            proxy_pass http://127.0.0.1:3000;

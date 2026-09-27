@@ -31,6 +31,11 @@ export class TableroService {
     return this.database.comoUsuario(usuario.id, (trx) => this.repo.lideresInactivos(trx));
   }
 
+  /** Parámetros que la pantalla necesita para explicar las alertas. */
+  async configuracion(usuario: UsuarioSesion) {
+    return this.database.comoUsuario(usuario.id, async (trx) => ({ liderInactivoDias: await this.repo.diasInactividad(trx) }));
+  }
+
   async metas(usuario: UsuarioSesion) {
     return this.database.comoUsuario(usuario.id, async (trx) => {
       const [miembros, territorios] = await Promise.all([this.repo.metasMiembro(trx), this.repo.metasTerritorio(trx)]);

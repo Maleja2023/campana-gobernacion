@@ -22,6 +22,10 @@ export class TerritorioService {
     return this.repo.municipios(this.database.db);
   }
 
+  async catalogoRegistro() {
+    return this.repo.catalogoRegistro(this.database.db);
+  }
+
   async puestos(municipioId: number) {
     return this.repo.puestos(this.database.db, municipioId);
   }

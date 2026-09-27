@@ -248,6 +248,23 @@ describe('SimpatizantesService', () => {
       expect(repo.registrar.mock.calls[0][1]).toMatchObject({ codigoLink: 'ABCD1234', canal: 'DIGITADOR' });
     });
 
+    it('registro sin conexión: guarda la hora de captura y lo anota en la evidencia', async () => {
+      const hace2Horas = new Date(Date.now() - 2 * 3_600_000).toISOString();
+      await servicio.crear(dtoRegistro({ codigoLink: 'ABCD1234', capturadoEn: hace2Horas }), USUARIO, null, null);
+
+      const datos = repo.registrar.mock.calls[0][1] as { capturadoEn: Date; aceptacionTexto: string };
+      expect(datos.capturadoEn.toISOString()).toBe(hace2Horas);
+      expect(datos.aceptacionTexto).toContain('capturado sin conexión');
+    });
+
+    it('rechaza una hora de captura futura o de hace más de 30 días', async () => {
+      const futuro = new Date(Date.now() + 3_600_000).toISOString();
+      const viejo = new Date(Date.now() - 31 * 86_400_000).toISOString();
+      await expect(servicio.crear(dtoRegistro({ codigoLink: 'ABCD1234', capturadoEn: futuro }), USUARIO, null, null)).rejects.toBeInstanceOf(ReglaNegocioError);
+      await expect(servicio.crear(dtoRegistro({ codigoLink: 'ABCD1234', capturadoEn: viejo }), USUARIO, null, null)).rejects.toBeInstanceOf(ReglaNegocioError);
+      expect(repo.registrar).not.toHaveBeenCalled();
+    });
+
     it('pide elegir el líder cuando el usuario no tiene enlace propio', async () => {
       repo.linkPrincipalDeUsuario.mockResolvedValue(undefined);
 
