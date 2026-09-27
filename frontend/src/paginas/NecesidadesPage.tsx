@@ -32,6 +32,11 @@ export function NecesidadesPage() {
       </div>
 
       {estado.data && <EstadoIa estado={estado.data} puedeGestionar={puedeGestionar} />}
+      {estado.isError && (
+        <div className="form-error" role="alert">
+          No se pudo consultar el estado de la clasificación: {estado.error.message}
+        </div>
+      )}
 
       <nav className="agenda-tabs" role="tablist" aria-label="Secciones">
         {(
