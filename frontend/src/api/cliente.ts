@@ -125,9 +125,19 @@ export type Usuario = {
 export type LoginResponse = { estado: EstadoSesion };
 export type MfaConfiguracion = { otpauthUri: string; qr: string };
 export type MfaConfirmacion = { codigosRecuperacion: string[] };
-export type ZonaProperties = { nombre: string; tipo: string; simpatizantes: number | null; subdivisiones: number | null };
+export type ZonaProperties = {
+  nombre: string;
+  tipo: string;
+  simpatizantes: number | null;
+  subdivisiones: number | null;
+  sinAcceso: boolean;
+};
 export type ZonaFeature = GeoJSON.Feature<GeoJSON.Geometry, ZonaProperties> & { id: number };
-export type ZonaCollection = GeoJSON.FeatureCollection<GeoJSON.Geometry, ZonaProperties> & { features: ZonaFeature[]; totalSimpatizantes?: number };
+export type ZonaCollection = GeoJSON.FeatureCollection<GeoJSON.Geometry, ZonaProperties> & {
+  features: ZonaFeature[];
+  totalSimpatizantes?: number | null;
+  totalSinAcceso?: boolean;
+};
 export type Contorno = { geojson: GeoJSON.Geometry; bbox: [number, number, number, number] };
 export type Simpatizante = {
   persona_id: string;

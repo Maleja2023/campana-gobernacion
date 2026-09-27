@@ -57,6 +57,9 @@ tbody tr { cursor: pointer; transition: background .15s; }
 tbody tr:hover, tbody tr:focus { background: #e8f0e8; outline: none; }
 td:first-child { display: flex; align-items: center; gap: .55rem; }
 .zone-swatch { display: inline-block; width: .52rem; height: .52rem; border-radius: 50%; flex: 0 0 auto; }
+.row-sin-acceso { cursor: default; color: #90a39a; font-style: italic; }
+.row-sin-acceso:hover, .row-sin-acceso:focus { background: transparent; }
+.total-badge-sin-acceso { font-size: .78rem; font-style: italic; }
 .legend { border-top: 1px solid #dae4da; margin-top: .8rem; padding-top: .9rem; }
 .legend-title, .legend-labels { display: flex; justify-content: space-between; color: #779089; font-size: .68rem; }
 .legend-swatches { display: flex; gap: 2px; margin: .45rem 0 .25rem; }

@@ -906,6 +906,7 @@ export interface TerritorioVMapa {
   nombre: string | null;
   padre_id: number | null;
   simpatizantes: number | null;
+  sin_acceso: boolean | null;
   subdivisiones: number | null;
   tipo_codigo: string | null;
 }

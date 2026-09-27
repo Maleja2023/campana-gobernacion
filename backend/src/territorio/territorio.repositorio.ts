@@ -70,8 +70,15 @@ export class TerritorioRepositorio {
     return db.selectFrom('territorio.territorios').select('id').where('tipo_codigo', '=', 'DEPARTAMENTO').executeTakeFirst();
   }
 
+  /**
+   * Debe ejecutarse dentro de comoUsuario(): m.simpatizantes y sin_acceso
+   * dependen de campana.conteo_territorio_visible(), que lee app.usuario_id
+   * (migración 20). Un territorio fuera del alcance del usuario llega con
+   * simpatizantes NULL y sin_acceso true; el total del padre, igual, si el
+   * propio padre no es visible.
+   */
   mapa(db: Kysely<DB>, padreId: number) {
-    return sql<{ geojson: unknown; total_simpatizantes: number }>`
+    return sql<{ geojson: unknown; total_simpatizantes: number | null; total_sin_acceso: boolean }>`
       select json_build_object(
                'type', 'FeatureCollection',
                'features', coalesce(json_agg(json_build_object(
@@ -82,10 +89,12 @@ export class TerritorioRepositorio {
                        'nombre', m.nombre,
                        'tipo', m.tipo_codigo,
                        'simpatizantes', m.simpatizantes,
-                       'subdivisiones', m.subdivisiones)
+                       'subdivisiones', m.subdivisiones,
+                       'sinAcceso', m.sin_acceso)
                )), '[]'::json)
              ) as geojson,
-             coalesce((select simpatizantes from campana.mv_conteo_territorio where territorio_id = ${padreId}), 0)::integer as total_simpatizantes
+             (select simpatizantes from campana.conteo_territorio_visible() where territorio_id = ${padreId}) as total_simpatizantes,
+             (not exists (select 1 from campana.conteo_territorio_visible() where territorio_id = ${padreId})) as total_sin_acceso
         from territorio.v_mapa m
        where m.padre_id = ${padreId}
          and m.geom is not null

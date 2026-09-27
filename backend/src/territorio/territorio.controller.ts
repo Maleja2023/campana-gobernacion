@@ -1,5 +1,6 @@
 import { BadRequestException, Controller, Get, ParseIntPipe, Query } from '@nestjs/common';
-import { Publico, RequierePermiso } from '../auth/decoradores.js';
+import { Publico, RequierePermiso, UsuarioActual } from '../auth/decoradores.js';
+import type { UsuarioSesion } from '../auth/auth.types.js';
 import { TerritorioService } from './territorio.service.js';
 
 const TIPOS_VALIDOS = ['MUNICIPIO', 'COMUNA', 'CORREGIMIENTO', 'BARRIO', 'VEREDA', 'CENTRO_POBLADO'];
@@ -56,7 +57,7 @@ export class TerritorioController {
    */
   @RequierePermiso('MAPA_VER')
   @Get('mapa')
-  mapa(@Query('padre', new ParseIntPipe({ optional: true })) padre?: number) {
-    return this.territorio.mapa(padre);
+  mapa(@UsuarioActual() usuario: UsuarioSesion, @Query('padre', new ParseIntPipe({ optional: true })) padre?: number) {
+    return this.territorio.mapa(usuario, padre);
   }
 }

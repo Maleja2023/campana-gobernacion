@@ -160,6 +160,40 @@ describe('Seguridad e2e (cuentas propias "prueba.*", nunca las de demostración)
     expect(metas.status).toBe(HttpStatus.FORBIDDEN);
   });
 
+  it('mapa: la coordinadora de Florencia no obtiene el conteo de San Vicente; el gerente sí (migración 20)', async () => {
+    const municipios = await request(app.getHttpServer()).get('/api/territorio/municipios');
+    type Municipio = { id: number; nombre: string };
+    const florencia = (municipios.body as Municipio[]).find((m) => m.nombre === 'FLORENCIA');
+    const sanVicente = (municipios.body as Municipio[]).find((m) => m.nombre.startsWith('SAN VICENTE'));
+    if (!florencia || !sanVicente) throw new Error('No se encontraron Florencia o San Vicente entre los municipios');
+
+    type Feature = { id: number; properties: { sinAcceso: boolean; simpatizantes: number | null } };
+
+    const deCoordinadora = await agenteCoordinadora.get('/api/territorio/mapa');
+    expect(deCoordinadora.status).toBe(HttpStatus.OK);
+    const featuresCoord = deCoordinadora.body.features as Feature[];
+    const florenciaParaCoord = featuresCoord.find((f) => f.id === florencia.id);
+    const sanVicenteParaCoord = featuresCoord.find((f) => f.id === sanVicente.id);
+    // Su propio municipio: conteo real (número, aunque sea 0), sin marcar.
+    expect(florenciaParaCoord?.properties.sinAcceso).toBe(false);
+    expect(typeof florenciaParaCoord?.properties.simpatizantes).toBe('number');
+    // San Vicente, fuera de su alcance: sin número, marcado sinAcceso.
+    expect(sanVicenteParaCoord?.properties.sinAcceso).toBe(true);
+    expect(sanVicenteParaCoord?.properties.simpatizantes).toBeNull();
+    // El total del padre (el departamento) tampoco es suyo: también oculto.
+    expect(deCoordinadora.body.totalSinAcceso).toBe(true);
+    expect(deCoordinadora.body.totalSimpatizantes).toBeNull();
+
+    const deGerente = await agenteGerente.get('/api/territorio/mapa');
+    expect(deGerente.status).toBe(HttpStatus.OK);
+    const featuresGerente = deGerente.body.features as Feature[];
+    const sanVicenteParaGerente = featuresGerente.find((f) => f.id === sanVicente.id);
+    expect(sanVicenteParaGerente?.properties.sinAcceso).toBe(false);
+    expect(typeof sanVicenteParaGerente?.properties.simpatizantes).toBe('number');
+    expect(deGerente.body.totalSinAcceso).toBe(false);
+    expect(typeof deGerente.body.totalSimpatizantes).toBe('number');
+  });
+
   it('gerente y líder obtienen conteos distintos en /tablero/indicadores', async () => {
     const deGerente = await agenteGerente.get('/api/tablero/indicadores');
     const deLider = await agenteLider.get('/api/tablero/indicadores');

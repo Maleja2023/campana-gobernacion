@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { NoEncontradoError } from '../comun/errores/errores-dominio.js';
 import { DatabaseService } from '../database/database.service.js';
+import type { UsuarioSesion } from '../auth/auth.types.js';
 import { TerritorioRepositorio, type ResultadoBusqueda } from './territorio.repositorio.js';
 
 export type { ResultadoBusqueda };
@@ -34,12 +35,23 @@ export class TerritorioService {
   /**
    * GeoJSON de los hijos de un territorio con su conteo de simpatizantes.
    * Sin `padre`, devuelve los municipios del departamento.
+   *
+   * Dentro de comoUsuario: los conteos (por territorio y el total del padre)
+   * salen de campana.conteo_territorio_visible(), que aplica el alcance del
+   * usuario (migración 20). Un territorio fuera de alcance llega en el
+   * GeoJSON con simpatizantes null y sinAcceso true, para pintarse en gris.
    */
-  async mapa(padre?: number) {
-    const padreId = padre ?? (await this.repo.departamentoId(this.database.db))?.id;
-    if (padreId === undefined) throw new NoEncontradoError('No hay territorio cargado');
+  async mapa(usuario: UsuarioSesion, padre?: number) {
+    return this.database.comoUsuario(usuario.id, async (trx) => {
+      const padreId = padre ?? (await this.repo.departamentoId(trx))?.id;
+      if (padreId === undefined) throw new NoEncontradoError('No hay territorio cargado');
 
-    const fila = await this.repo.mapa(this.database.db, padreId);
-    return { ...(fila.geojson as object), totalSimpatizantes: fila.total_simpatizantes };
+      const fila = await this.repo.mapa(trx, padreId);
+      return {
+        ...(fila.geojson as object),
+        totalSimpatizantes: fila.total_simpatizantes,
+        totalSinAcceso: fila.total_sin_acceso,
+      };
+    });
   }
 }

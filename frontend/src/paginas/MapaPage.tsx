@@ -27,6 +27,11 @@ const MARGEN_MUNICIPIO_AJUSTE = 0.08;
 const MARGEN_MUNICIPIO_LIMITE = 0.14;
 
 const ESCALA_PRESENCIA = ['#e8ece7', '#c7dfce', '#91c9a7', '#5aaa83', '#2e7c68', '#155448'];
+// Mismo gris de la máscara: un territorio fuera del alcance del usuario (fuera
+// de acceso.territorios_visibles(), migración 20) se dibuja así en cualquier
+// modo de color, y nunca muestra su número de simpatizantes.
+const COLOR_SIN_ACCESO = '#c7cbc3';
+const TEXTO_SIN_ACCESO = 'Sin acceso';
 
 function formatNumber(v: number | null | undefined) {
   return new Intl.NumberFormat('es-CO').format(Number(v ?? 0));
@@ -38,6 +43,11 @@ function palabraSimpatizantes(n: number) {
 
 function conSimpatizantes(n: number) {
   return `${formatNumber(n)} ${palabraSimpatizantes(n)}`;
+}
+
+/** Texto para una cantidad que puede estar oculta por falta de alcance. */
+function conSimpatizantesOSinAcceso(n: number | null | undefined, sinAcceso: boolean) {
+  return sinAcceso ? TEXTO_SIN_ACCESO : conSimpatizantes(Number(n ?? 0));
 }
 
 /** Nivel 0 (sin registros) a 5 (máximo) dentro de la escala de color de presencia. */
@@ -189,11 +199,15 @@ export function MapaPage() {
     enabled: puedeVerSimpatizantes && mostrarSimpatizantes && selected !== null,
   });
 
-  const max = Math.max(...features.map((f) => Number(f.properties.simpatizantes ?? 0)), 0);
+  const featuresVisibles = features.filter((f) => !f.properties.sinAcceso);
+  const max = Math.max(...featuresVisibles.map((f) => Number(f.properties.simpatizantes ?? 0)), 0);
   const step = max / 5 || 1;
-  const total = mapa.data?.totalSimpatizantes ?? features.reduce((s, f) => s + Number(f.properties.simpatizantes ?? 0), 0);
-  const dibujado = features.reduce((s, f) => s + Number(f.properties.simpatizantes ?? 0), 0);
-  const sinPoligono = Math.max(0, total - dibujado);
+  const totalSinAcceso = mapa.data?.totalSinAcceso ?? false;
+  const total = totalSinAcceso
+    ? null
+    : (mapa.data?.totalSimpatizantes ?? featuresVisibles.reduce((s, f) => s + Number(f.properties.simpatizantes ?? 0), 0));
+  const dibujado = featuresVisibles.reduce((s, f) => s + Number(f.properties.simpatizantes ?? 0), 0);
+  const sinPoligono = total === null ? 0 : Math.max(0, total - dibujado);
   const ordered = useMemo(
     () =>
       [...features].sort((a, b) => {
@@ -225,6 +239,7 @@ export function MapaPage() {
   }
 
   function enter(feature: ZonaFeature) {
+    if (feature.properties.sinAcceso) return;
     setSelected(feature);
     setMostrarSimpatizantes(false);
     setPaginaSimpatizantes(1);
@@ -254,6 +269,7 @@ export function MapaPage() {
    * En cualquier otro caso: mapa de calor de presencia (tintado con el color
    * del municipio actual cuando estamos dentro de uno). */
   function colorDeFeature(feature: ZonaFeature) {
+    if (feature.properties.sinAcceso) return COLOR_SIN_ACCESO;
     if (enRaiz && modoColor === 'municipios') return colorMunicipio(codigoPorMunicipioId.get(feature.id));
     return escalaActual[nivelDeValor(Number(feature.properties.simpatizantes ?? 0), step)];
   }
@@ -269,15 +285,17 @@ export function MapaPage() {
   }
 
   function each(feature: ZonaFeature, layer: Layer) {
-    const cantidad = Number(feature.properties.simpatizantes ?? 0);
+    const sinAcceso = feature.properties.sinAcceso;
+    const texto = conSimpatizantesOSinAcceso(feature.properties.simpatizantes, sinAcceso);
     if (enRaiz) {
       const nombreSolo = feature.properties.nombre;
       layer.bindTooltip(nombreSolo, { permanent: true, direction: 'center', className: 'municipio-label' });
       layer.on({
         mouseover: (e: LeafletEvent) => {
+          if (sinAcceso) return;
           e.target.setStyle({ weight: 3, color: '#f4c95d', fillOpacity: 0.96 });
           e.target.bringToFront();
-          e.target.setTooltipContent(`<strong>${nombreSolo}</strong><br />${conSimpatizantes(cantidad)}`);
+          e.target.setTooltipContent(`<strong>${nombreSolo}</strong><br />${texto}`);
         },
         mouseout: (e: LeafletEvent) => {
           e.target.setStyle(style(feature));
@@ -286,9 +304,10 @@ export function MapaPage() {
         click: () => enter(feature),
       });
     } else {
-      layer.bindTooltip(`<strong>${feature.properties.nombre}</strong><br />${conSimpatizantes(cantidad)}`, { sticky: true });
+      layer.bindTooltip(`<strong>${feature.properties.nombre}</strong><br />${texto}`, { sticky: true });
       layer.on({
         mouseover: (e: LeafletEvent) => {
+          if (sinAcceso) return;
           e.target.setStyle({ weight: 3, color: '#f4c95d', fillOpacity: 0.96 });
           e.target.bringToFront();
         },
@@ -398,8 +417,14 @@ export function MapaPage() {
                 <h2>Zonas del nivel</h2>
               </div>
               <div className="total-badge-wrap">
-                <strong className="total-badge">{formatNumber(total)}</strong>
-                <small>{palabraSimpatizantes(total)}</small>
+                {total === null ? (
+                  <strong className="total-badge total-badge-sin-acceso">{TEXTO_SIN_ACCESO}</strong>
+                ) : (
+                  <>
+                    <strong className="total-badge">{formatNumber(total)}</strong>
+                    <small>{palabraSimpatizantes(total)}</small>
+                  </>
+                )}
               </div>
             </div>
             {enRaiz && (
@@ -452,12 +477,18 @@ export function MapaPage() {
                 </thead>
                 <tbody>
                   {ordered.map((f) => (
-                    <tr key={f.id} tabIndex={0} onClick={() => enter(f)} onKeyDown={(e) => e.key === 'Enter' && enter(f)}>
+                    <tr
+                      key={f.id}
+                      className={f.properties.sinAcceso ? 'row-sin-acceso' : undefined}
+                      tabIndex={f.properties.sinAcceso ? -1 : 0}
+                      onClick={() => enter(f)}
+                      onKeyDown={(e) => e.key === 'Enter' && enter(f)}
+                    >
                       <td>
                         <i className="zone-swatch" style={{ backgroundColor: colorDeFeature(f) }} />
                         {f.properties.nombre}
                       </td>
-                      <td>{formatNumber(f.properties.simpatizantes)}</td>
+                      <td>{f.properties.sinAcceso ? TEXTO_SIN_ACCESO : formatNumber(f.properties.simpatizantes)}</td>
                     </tr>
                   ))}
                   {sinPoligono > 0 && (
