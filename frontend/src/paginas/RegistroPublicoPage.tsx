@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { useParams } from 'react-router';
+import { Link, useParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/cliente';
 import { Captcha } from '../componentes/Captcha';
@@ -255,6 +255,9 @@ export function RegistroPublicoPage() {
               personas.
             </p>
           )}
+          <p className="helper">
+            Puedes consultar, corregir o pedir que borremos tus datos, o dejar de recibir mensajes, en <Link to="/mis-datos">Mis datos</Link>.
+          </p>
         </section>
       </main>
     );
@@ -486,6 +489,9 @@ export function RegistroPublicoPage() {
               <details>
                 <summary>Leer política de tratamiento de datos</summary>
                 <p>{politica.data?.texto}</p>
+                <Link to="/privacidad" target="_blank" rel="noopener">
+                  Ver la política completa y el responsable
+                </Link>
               </details>
               <label className="checkbox-label">
                 <input type="checkbox" checked={aceptaPolitica} onChange={(e) => setAceptaPolitica(e.target.checked)} required />

@@ -1,5 +1,5 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
-import { Navigate, useNavigate } from 'react-router';
+import { Link, Navigate, useNavigate } from 'react-router';
 import { Icono } from '../componentes/Icono';
 import { SiluetaCaqueta } from '../componentes/Silueta';
 import { useSesion } from '../sesion/SesionContext';
@@ -112,6 +112,9 @@ export function LoginPage() {
         </button>
         <p className="auth-legal">
           Acceso restringido al equipo de campaña. Cada ingreso y cada consulta de datos personales quedan registrados en la bitácora de auditoría.
+        </p>
+        <p className="auth-legal">
+          <Link to="/privacidad">Política de tratamiento de datos</Link> · <Link to="/mis-datos">Mis datos</Link>
         </p>
       </form>
     </main>

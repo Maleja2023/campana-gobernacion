@@ -3125,3 +3125,38 @@ tbody tr:hover td {
 @media (max-width: 720px) {
   .solicitudes-lider li { flex-direction: column; }
 }
+
+/* Páginas públicas de protección de datos (/privacidad, /mis-datos) */
+.publica-page { min-height: 100vh; padding: 32px 16px 48px; background: linear-gradient(180deg, var(--marca-900) 0, var(--marca-900) 220px, var(--pagina) 220px); }
+.publica-card { width: min(100%, 760px); margin: 0 auto; padding: 28px clamp(18px, 4vw, 36px); background: var(--superficie); border: 1px solid var(--borde); border-radius: 14px; box-shadow: var(--sombra-2); }
+.publica-encabezado { display: flex; gap: 14px; align-items: flex-start; padding-bottom: 18px; margin-bottom: 18px; border-bottom: 1px solid var(--borde); }
+.publica-encabezado h1 { margin: 2px 0 6px; font-size: 24px; line-height: 1.2; }
+.publica-encabezado p { margin: 0; color: var(--texto-2); }
+.publica-encabezado .eyebrow { color: var(--acento-texto); }
+.publica-bloque { margin: 0 0 22px; }
+.publica-bloque h2 { margin: 0 0 8px; font-size: 16px; }
+.publica-bloque p, .publica-bloque li { color: var(--texto-2); line-height: 1.6; }
+.politica-texto { max-height: 420px; overflow: auto; padding: 14px 16px; white-space: pre-wrap; line-height: 1.6; font-size: 14px; background: var(--superficie-2); border: 1px solid var(--borde); border-radius: var(--radio-sm); }
+.publica-form { display: grid; gap: 14px; margin-top: 16px; }
+.publica-form label { display: grid; gap: 6px; font-size: 13.5px; font-weight: 600; color: var(--texto-2); }
+.publica-form .primary-button { justify-self: start; }
+.publica-exito { margin-top: 16px; padding: 18px; border-radius: var(--radio); background: var(--bien-suave); color: var(--bien-texto); line-height: 1.6; }
+.publica-exito .codigo { font-family: ui-monospace, monospace; font-weight: 700; }
+.publica-estado { padding: 16px; border: 1px solid var(--borde); border-radius: var(--radio); background: var(--superficie-2); line-height: 1.6; }
+.publica-pie { margin-top: 24px; padding-top: 14px; border-top: 1px solid var(--borde); }
+
+/* Panel de cumplimiento */
+.solicitud-titular .solicitud-texto { margin: 4px 0 0; white-space: pre-wrap; color: var(--texto); font-size: 13.5px; }
+.tramite { display: grid; gap: 10px; margin-top: 12px; padding: 14px; border: 1px solid var(--borde); border-radius: var(--radio); background: var(--superficie-2); }
+.tramite textarea { width: 100%; min-height: 80px; }
+.datos-titular { max-height: 320px; overflow: auto; margin: 0; padding: 12px; font-size: 12.5px; background: var(--marca-950); color: #e6edf6; border-radius: var(--radio-sm); }
+.boton-peligro { color: var(--critico-texto); border-color: var(--critico); }
+.boton-peligro:hover:not(:disabled) { background: var(--critico-suave); }
+@media (max-width: 640px) {
+  .solicitudes-lider li { flex-direction: column; }
+  .publica-encabezado h1 { font-size: 20px; }
+}
+.tramite ol { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+.tramite ol li { border: 0; padding: 0; display: list-item; }
+.publica-form fieldset { border: 0; margin: 0; padding: 0; }
+.publica-form legend { padding: 0; margin-bottom: 8px; font-size: 13.5px; font-weight: 600; color: var(--texto-2); }

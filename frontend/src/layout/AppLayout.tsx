@@ -33,6 +33,7 @@ const SECCIONES: { titulo: string; opciones: Opcion[] }[] = [
       { etiqueta: 'Mi red', ruta: '/red', permiso: 'REPORTE_VER', icono: 'red' },
       { etiqueta: 'Registrar simpatizante', ruta: '/registrar', permiso: 'SIMPATIZANTE_CREAR', icono: 'mas' },
       { etiqueta: 'Usuarios', ruta: '/usuarios', permiso: 'USUARIO_GESTIONAR', icono: 'usuario' },
+      { etiqueta: 'Protección de datos', ruta: '/cumplimiento', permiso: 'SOLICITUD_TITULAR', icono: 'escudo' },
     ],
   },
 ];

@@ -74,7 +74,7 @@ Internet ──> Cloudflare (WAF, anti-DDoS, HTTPS)
    - `00_instalacion_completa.sql`
    - Importar `caqueta.gpkg` al esquema `staging` (mismos comandos `ogr2ogr` de `06_importar_gpkg.bat`).
    - `07_carga_territorio.sql`
-   - Migraciones `10` a `33`, en orden (`22_correccion_veredas.sql` solo hace falta en bases cargadas antes de la corrección de veredas).
+   - Migraciones `10` a `34`, en orden (`22_correccion_veredas.sql` solo hace falta en bases cargadas antes de la corrección de veredas).
    - **Nunca** `08_datos_demo.sql`.
 5. Crear el usuario de la API con una contraseña generada, **distinta** a la de desarrollo:
    ```sql
@@ -182,6 +182,7 @@ Internet ──> Cloudflare (WAF, anti-DDoS, HTTPS)
 5. **Límites de peticiones** para `/api/auth/login` y `/api/registro` (además de los que ya tiene la API).
 6. Protección contra bots según el plan. Conocer el modo "Under Attack" para activarlo durante un ataque.
 7. Revisa qué incluye cada plan: algunas funciones (más reglas de WAF y de límites) son de pago. Para una campaña a gobernación, el costo del plan pagado se justifica y debe ir en la propuesta.
+8. **Panel administrativo en `admin.dominio.co` con Cloudflare Access**, y reglas concretas de WAF y límites: paso a paso en [`cloudflare.md`](cloudflare.md).
 
 ---
 
@@ -189,20 +190,20 @@ Internet ──> Cloudflare (WAF, anti-DDoS, HTTPS)
 
 Un respaldo que nunca se ha restaurado no es un respaldo.
 
-1. Script diario (`/opt/campana/respaldo.sh`), ejecutado con cron a las 2:00 a. m.:
-   ```bash
-   #!/bin/bash
-   set -euo pipefail
-   FECHA=$(date +%F)
-   pg_dump -Fc campana_gobernacion | age -r "<llave pública age>" > /var/backups/campana/campana-$FECHA.dump.age
-   rclone copy /var/backups/campana/campana-$FECHA.dump.age remoto:respaldos-campana/
-   find /var/backups/campana -name '*.age' -mtime +14 -delete
+1. Copiar `scripts/respaldo.sh` a `/opt/campana/scripts/` y crear `/etc/campana/respaldo.env` (permisos 600) con las variables que explica el encabezado del script. Programarlo con cron, como `postgres`, a las 2:00 a. m.:
    ```
-   - Cifrado con `age`: la llave privada **no** está en el servidor (está en el gestor de contraseñas). Si roban el servidor, los respaldos no sirven.
-   - Copia fuera del servidor, en otro proveedor (almacenamiento de objetos).
-   - Retención: 14 diarios y 8 semanales.
+   0 2 * * * /opt/campana/scripts/respaldo.sh >> /var/log/campana-respaldo.log 2>&1
+   ```
+   - Cifra con `age` en el mismo paso del volcado: el respaldo sin cifrar nunca toca el disco. La llave privada **no** está en el servidor (está en el gestor de contraseñas). Si roban el servidor, los respaldos no sirven.
+   - Copia fuera del servidor con `rclone`, en otro proveedor (almacenamiento de objetos), y verifica la copia.
+   - Retención: 14 diarios y 8 semanales. Configure la misma retención en el proveedor remoto (reglas de ciclo de vida).
+   - Opcional: `AVISO_URL` de healthchecks.io para que le avisen si un día no corre.
 2. Respaldar aparte, y cifrado, el `.env` de producción.
-3. **Prueba de restauración mensual** en un servidor temporal: descifrar, `pg_restore`, levantar la API y verificar que las cédulas se descifran. Anotar fecha y resultado.
+3. **Prueba de restauración mensual** con `scripts/probar_restauracion.sh`, en un servidor temporal (nunca en producción):
+   ```
+   ./probar_restauracion.sh llave-age.txt .env-produccion
+   ```
+   Descarga el último respaldo, lo descifra, lo restaura en una base temporal, cuenta los registros y descifra una muestra de cédulas y teléfonos con la llave de la aplicación. Al final borra la base temporal. Anote la fecha y el resultado, y borre del servidor temporal la llave y el `.env`.
 
 ---
 
@@ -271,15 +272,17 @@ Define por escrito, antes del lanzamiento, quién decide cada paso y cómo se co
 
 - [ ] Servidor con SSH por llave, sin root, firewall solo para Cloudflare
 - [ ] PostgreSQL escuchando solo en localhost
-- [ ] Migraciones 10 a 16 aplicadas; datos demo NO cargados
+- [ ] Migraciones 10 a 34 aplicadas; datos demo NO cargados
 - [ ] Secretos de producción nuevos, respaldados fuera del servidor
 - [ ] Doble factor activado y probado para gerente, candidato, coordinadores y administradores
 - [ ] Sesión en cookies seguras (sin tokens en el navegador)
-- [ ] Cloudflare en Full (strict), WAF y límites activos
+- [ ] Cloudflare en Full (strict), WAF y límites activos ([`cloudflare.md`](cloudflare.md))
+- [ ] Panel administrativo solo por `admin.dominio.co` con Access; `app.dominio.co/api/usuarios` responde 403
 - [ ] Cabeceras de seguridad verificadas (por ejemplo con securityheaders.com)
 - [ ] Respaldo diario funcionando y **una restauración probada**
 - [ ] Monitor de disponibilidad con alertas
-- [ ] Política de tratamiento de datos real publicada y cargada
+- [ ] Política de tratamiento de datos real publicada y cargada (se ve en `/privacidad`), con `RESPONSABLE_NOMBRE`, `RESPONSABLE_CORREO` y `RESPONSABLE_TELEFONO` en el `.env`
+- [ ] Plan de cierre ([`plan-cierre.md`](plan-cierre.md)) aprobado por el responsable, con fecha
 - [ ] Base de datos registrada ante la SIC si la campaña está obligada (Registro Nacional de Bases de Datos)
 - [ ] Prueba de penetración realizada y hallazgos altos corregidos
 - [ ] Capacitación corta a líderes: no compartir cuentas, cómo reconocer mensajes falsos, qué hacer si pierden el celular

@@ -277,6 +277,43 @@ export type InformeNecesidades = {
   error: string | null;
   informe: { id: number; generado_en: string; modelo: string; total_necesidades: number; contenido: string; generado_por: string } | null;
 };
+export type Responsable = { nombre: string; correo: string | null; telefono: string | null };
+export type EstadoSolicitudTitular = {
+  radicado: string;
+  tipo: string;
+  estado: 'RECIBIDA' | 'EN_TRAMITE' | 'RESPONDIDA' | 'RECHAZADA';
+  recibida_en: string;
+  fecha_limite: string;
+  respondida_en: string | null;
+  respuesta: string | null;
+};
+export type SolicitudTitular = {
+  id: string;
+  radicado: string;
+  tipo_codigo: 'CONSULTA' | 'ACTUALIZACION' | 'SUPRESION' | 'REVOCATORIA';
+  tipo: string;
+  estado: EstadoSolicitudTitular['estado'];
+  contacto_respuesta: string;
+  descripcion: string;
+  recibida_en: string;
+  fecha_limite: string;
+  dias_habiles_restantes: number;
+  respondida_en: string | null;
+  respuesta: string | null;
+  persona_encontrada: boolean;
+  nombre: string | null;
+};
+export type FilaBitacoraAuditoria = {
+  id: number;
+  ocurrido_en: string;
+  usuario: string;
+  accion: string;
+  esquema: string | null;
+  tabla: string | null;
+  registro_id: string | null;
+  campos: string | null;
+  ip: string | null;
+};
 export type FiltrosReporte = { municipioId?: number; miembroId?: string; desde?: string; hasta?: string };
 export type TipoReporte = 'MUNICIPIOS' | 'LIDERES' | 'PUESTOS' | 'PROYECCION' | 'CALIDAD';
 export type FilaCalidad = {
@@ -486,6 +523,17 @@ export const api = {
   historialSimpatizante: (personaId: string) => cliente.get<EntradaHistorial[]>(`/simpatizantes/${personaId}/historial`),
   catalogoRegistro: () => cliente.get<CatalogoMunicipio[]>('/territorio/catalogo-registro'),
   lideresRegistro: () => cliente.get<LiderRegistro[]>('/simpatizantes/lideres-registro'),
+  responsableDatos: () => cliente.get<Responsable>('/titular/responsable'),
+  radicarSolicitudTitular: (body: { tipo: string; documento: string; contacto: string; descripcion: string; captcha?: string }) =>
+    cliente.post<{ radicado: string; fechaLimite: string }>('/titular/solicitudes', body),
+  estadoSolicitudTitular: (body: { radicado: string; documento: string }) => cliente.post<EstadoSolicitudTitular>('/titular/estado', body),
+  bajaMensajes: (body: { documento: string; canal?: string; captcha?: string }) => cliente.post<{ mensaje: string }>('/titular/baja', body),
+  solicitudesTitular: (estado?: string) => cliente.get<SolicitudTitular[]>(`/cumplimiento/solicitudes${consulta({ estado })}`),
+  datosTitular: (id: string) => cliente.get<Record<string, unknown> | null>(`/cumplimiento/solicitudes/${id}/datos`),
+  tramitarSolicitudTitular: (id: string, accion: string, respuesta?: string) =>
+    cliente.post<{ id: string; accion: string }>(`/cumplimiento/solicitudes/${id}/tramitar`, { accion, respuesta }),
+  bitacoraAuditoria: (f: { usuario?: string; accion?: string; tabla?: string; desde?: string; hasta?: string; pagina?: number }) =>
+    cliente.get<{ datos: FilaBitacoraAuditoria[]; total: number; pagina: number; porPagina: number }>(`/auditoria/bitacora${consulta(f)}`),
   configuracionRegistro: () => cliente.get<{ captchaSiteKey: string | null }>('/registro/configuracion'),
   documentoSimpatizante: (personaId: string) => cliente.get<DocumentoDescifrado>(`/simpatizantes/${personaId}/documento`),
   necesidadesEstado: () => cliente.get<EstadoClasificacion>('/necesidades/clasificacion'),

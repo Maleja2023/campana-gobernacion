@@ -126,6 +126,19 @@ export class VariablesEntorno {
   @IsOptional()
   @Matches(/^claude-[a-z0-9-]+$/, { message: 'IA_MODELO debe ser un modelo de Claude, por ejemplo claude-opus-5' })
   IA_MODELO?: string;
+
+  /** Responsable del tratamiento de datos (Ley 1581): aparece en la página de privacidad. */
+  @IsOptional()
+  @MinLength(3)
+  RESPONSABLE_NOMBRE?: string;
+
+  @IsOptional()
+  @Matches(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, { message: 'RESPONSABLE_CORREO debe ser un correo' })
+  RESPONSABLE_CORREO?: string;
+
+  @IsOptional()
+  @MinLength(7)
+  RESPONSABLE_TELEFONO?: string;
 }
 
 export function validarVariablesEntorno(config: Record<string, unknown>): VariablesEntorno {
