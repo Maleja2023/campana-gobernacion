@@ -13,11 +13,21 @@ export type Numeric = ColumnType<number, number | string, number | string>;
 
 export type Timestamp = ColumnType<Date, Date | string, Date | string>;
 
+export interface AccesoCodigosRecuperacion {
+  codigo_hash: string;
+  creado_en: Generated<Timestamp>;
+  id: Generated<string>;
+  usado_en: Timestamp | null;
+  usuario_id: string;
+}
+
 export interface AccesoFactoresMfa {
+  confirmado_en: Timestamp | null;
   creado_en: Generated<Timestamp>;
   id: Generated<string>;
   secreto_cifrado: Buffer;
   tipo: string;
+  ultimo_paso: number | null;
   usuario_id: string;
 }
 
@@ -30,6 +40,12 @@ export interface AccesoRoles {
   codigo: string;
   descripcion: string | null;
   nombre: string;
+  requiere_mfa: Generated<boolean>;
+}
+
+export interface AccesoRolesAsignables {
+  rol_asignable: string;
+  rol_asignador: string;
 }
 
 export interface AccesoRolPermisos {
@@ -42,6 +58,11 @@ export interface AccesoSesiones {
   id: Generated<string>;
   iniciada_en: Generated<Timestamp>;
   ip: string | null;
+  mfa_verificado: Generated<boolean>;
+  renovacion_anterior_hash: Buffer | null;
+  renovacion_expira_en: Timestamp | null;
+  renovacion_hash: Buffer | null;
+  ultimo_uso_en: Timestamp | null;
   user_agent: string | null;
   usuario_id: string;
 }
@@ -54,6 +75,7 @@ export interface AccesoUsuarioRoles {
 export interface AccesoUsuarios {
   activo: Generated<boolean>;
   creado_en: Generated<Timestamp>;
+  debe_cambiar_clave: Generated<boolean>;
   id: Generated<string>;
   login: string;
   password_hash: string;
@@ -105,7 +127,7 @@ export interface AuditoriaExportacionTerritorios {
 export interface AuditoriaVActividadUsuarios {
   accion: string | null;
   eventos: number | null;
-  fecha: Timestamp | null;
+  fecha: string | null;
   login: string | null;
   usuario_id: string | null;
 }
@@ -183,16 +205,16 @@ export interface CampanaLinksReferido {
 
 export interface CampanaMetasMiembro {
   cantidad: number;
-  fecha_inicio: Timestamp;
-  fecha_limite: Timestamp;
+  fecha_inicio: string;
+  fecha_limite: string;
   id: Generated<number>;
   miembro_id: string;
 }
 
 export interface CampanaMetasTerritorio {
   cantidad: number;
-  fecha_inicio: Timestamp;
-  fecha_limite: Timestamp;
+  fecha_inicio: string;
+  fecha_limite: string;
   id: Generated<number>;
   territorio_id: number;
 }
@@ -200,7 +222,7 @@ export interface CampanaMetasTerritorio {
 export interface CampanaMiembros {
   activo: Generated<boolean>;
   cargo_codigo: string;
-  fecha_ingreso: Generated<Timestamp>;
+  fecha_ingreso: Generated<string>;
   id: Generated<string>;
   persona_id: string;
   superior_id: string | null;
@@ -243,8 +265,8 @@ export interface CampanaSimpatizantes {
 }
 
 export interface CampanaVAvanceMetasMiembro {
-  fecha_inicio: Timestamp | null;
-  fecha_limite: Timestamp | null;
+  fecha_inicio: string | null;
+  fecha_limite: string | null;
   meta: number | null;
   miembro_id: string | null;
   porcentaje: Numeric | null;
@@ -252,7 +274,7 @@ export interface CampanaVAvanceMetasMiembro {
 }
 
 export interface CampanaVAvanceMetasTerritorio {
-  fecha_limite: Timestamp | null;
+  fecha_limite: string | null;
   meta: number | null;
   porcentaje: Numeric | null;
   registrados: number | null;
@@ -292,7 +314,7 @@ export interface CampanaVRedMiembros {
 
 export interface CampanaVRegistrosDiarios {
   canal_codigo: string | null;
-  fecha: Timestamp | null;
+  fecha: string | null;
   municipio_id: number | null;
   registros: number | null;
 }
@@ -438,8 +460,8 @@ export interface CumplimientoPoliticasTratamiento {
   hash_texto: Buffer;
   texto: string;
   version: number;
-  vigente_desde: Timestamp;
-  vigente_hasta: Timestamp | null;
+  vigente_desde: string;
+  vigente_hasta: string | null;
 }
 
 export interface CumplimientoSolicitudesTitular {
@@ -469,7 +491,7 @@ export interface CumplimientoVControlAutorizaciones {
 
 export interface CumplimientoVSolicitudesPlazos {
   estado: string | null;
-  fecha_limite: Timestamp | null;
+  fecha_limite: string | null;
   id: string | null;
   radicado: string | null;
   recibida_en: Timestamp | null;
@@ -494,7 +516,7 @@ export interface ElectoralFormulariosE14 {
 }
 
 export interface ElectoralJornadas {
-  fecha: Timestamp;
+  fecha: string;
   id: Generated<number>;
   nombre: string;
   tipo_codigo: string;
@@ -605,15 +627,31 @@ export interface EventosAsistencias {
 }
 
 export interface EventosEventos {
-  codigo_checkin: string;
+  actualizada_en: Generated<Timestamp>;
+  asistentes_aprox: number | null;
+  codigo_checkin: Generated<string>;
+  con_candidato: Generated<boolean>;
   creado_por: string;
   descripcion: string | null;
+  estado: Generated<string>;
   id: Generated<string>;
   inicia_en: Timestamp;
   lugar: string | null;
   nombre: string;
+  resumen: string | null;
   termina_en: Timestamp;
   territorio_id: number;
+  tipo_codigo: string;
+}
+
+export interface EventosLideresPresentes {
+  evento_id: string;
+  miembro_id: string;
+}
+
+export interface EventosOrganizacionesPresentes {
+  evento_id: string;
+  nombre: string;
   tipo_codigo: string;
 }
 
@@ -625,6 +663,44 @@ export interface EventosOrganizadores {
 export interface EventosTiposEvento {
   codigo: string;
   nombre: string;
+}
+
+export interface EventosTiposOrganizacion {
+  codigo: string;
+  nombre: string;
+}
+
+export interface EventosVAgenda {
+  asistentes_aprox: number | null;
+  compromisos: number | null;
+  con_candidato: boolean | null;
+  estado: string | null;
+  id: string | null;
+  inicia_en: Timestamp | null;
+  lat: number | null;
+  lideres_presentes: number | null;
+  lon: number | null;
+  municipio_id: number | null;
+  nombre: string | null;
+  organizaciones: number | null;
+  planteamientos: number | null;
+  resumen: string | null;
+  ruta: string | null;
+  termina_en: Timestamp | null;
+  territorio: string | null;
+  territorio_id: number | null;
+  tipo: string | null;
+  tipo_codigo: string | null;
+}
+
+export interface EventosVCobertura {
+  geom: string | null;
+  nombre: string | null;
+  padre_id: number | null;
+  territorio_id: number | null;
+  tipo_codigo: string | null;
+  ultima_visita: Timestamp | null;
+  visitas: number | null;
 }
 
 export interface EventosVResumenEventos {
@@ -651,6 +727,25 @@ export interface ParticipacionClasificacionesIa {
   necesidad_id: string;
 }
 
+export interface ParticipacionCompromisoNecesidades {
+  compromiso_id: string;
+  necesidad_id: string;
+}
+
+export interface ParticipacionCompromisos {
+  actualizada_en: Generated<Timestamp>;
+  categoria_codigo: string | null;
+  creado_en: Generated<Timestamp>;
+  creado_por: string;
+  descripcion: string;
+  estado: Generated<string>;
+  evento_id: string | null;
+  id: Generated<string>;
+  propuesta_id: string | null;
+  responsable_miembro_id: string | null;
+  territorio_id: number;
+}
+
 export interface ParticipacionEjesPrograma {
   codigo: string;
   nombre: string;
@@ -660,9 +755,13 @@ export interface ParticipacionEjesPrograma {
 export interface ParticipacionNecesidades {
   categoria_codigo: string | null;
   descripcion: string;
+  evento_id: string | null;
   id: Generated<string>;
+  origen: Generated<string>;
   persona_id: string | null;
+  prioridad: string | null;
   reportada_en: Generated<Timestamp>;
+  reportado_por: string | null;
   territorio_id: number;
 }
 
@@ -685,10 +784,38 @@ export interface ParticipacionPropuestaTerritorios {
   territorio_id: number;
 }
 
+export interface ParticipacionVCompromisos {
+  actualizada_en: Timestamp | null;
+  categoria: string | null;
+  categoria_codigo: string | null;
+  creado_en: Timestamp | null;
+  descripcion: string | null;
+  dias_abierto: number | null;
+  estado: string | null;
+  evento_id: string | null;
+  fecha_visita: Timestamp | null;
+  id: string | null;
+  municipio_id: number | null;
+  planteamientos: number | null;
+  propuesta: string | null;
+  propuesta_id: string | null;
+  responsable_miembro_id: string | null;
+  ruta: string | null;
+  territorio_id: number | null;
+  visita: string | null;
+}
+
 export interface ParticipacionVNecesidadesMunicipio {
   cantidad: number | null;
   categoria_codigo: string | null;
   municipio_id: number | null;
+}
+
+export interface ParticipacionVNecesidadesOrigen {
+  cantidad: number | null;
+  categoria_codigo: string | null;
+  municipio_id: number | null;
+  origen: string | null;
 }
 
 export interface ParticipacionVNecesidadesSinPropuesta {
@@ -729,7 +856,7 @@ export interface PersonasTiposDocumento {
 
 export interface TerritorioFuentesGeograficas {
   entidad: string;
-  fecha_obtencion: Timestamp | null;
+  fecha_obtencion: string | null;
   id: Generated<number>;
   nombre: string;
   url: string | null;
@@ -792,10 +919,12 @@ export interface TerritorioVZonasSinCobertura {
 }
 
 export interface DB {
+  "acceso.codigos_recuperacion": AccesoCodigosRecuperacion;
   "acceso.factores_mfa": AccesoFactoresMfa;
   "acceso.permisos": AccesoPermisos;
   "acceso.rol_permisos": AccesoRolPermisos;
   "acceso.roles": AccesoRoles;
+  "acceso.roles_asignables": AccesoRolesAsignables;
   "acceso.sesiones": AccesoSesiones;
   "acceso.usuario_roles": AccesoUsuarioRoles;
   "acceso.usuario_territorios": AccesoUsuarioTerritorios;
@@ -870,17 +999,26 @@ export interface DB {
   "electoral.v_origen_votantes_puesto": ElectoralVOrigenVotantesPuesto;
   "eventos.asistencias": EventosAsistencias;
   "eventos.eventos": EventosEventos;
+  "eventos.lideres_presentes": EventosLideresPresentes;
+  "eventos.organizaciones_presentes": EventosOrganizacionesPresentes;
   "eventos.organizadores": EventosOrganizadores;
   "eventos.tipos_evento": EventosTiposEvento;
+  "eventos.tipos_organizacion": EventosTiposOrganizacion;
+  "eventos.v_agenda": EventosVAgenda;
+  "eventos.v_cobertura": EventosVCobertura;
   "eventos.v_resumen_eventos": EventosVResumenEventos;
   "participacion.categorias_necesidad": ParticipacionCategoriasNecesidad;
   "participacion.clasificaciones_ia": ParticipacionClasificacionesIa;
+  "participacion.compromiso_necesidades": ParticipacionCompromisoNecesidades;
+  "participacion.compromisos": ParticipacionCompromisos;
   "participacion.ejes_programa": ParticipacionEjesPrograma;
   "participacion.necesidades": ParticipacionNecesidades;
   "participacion.propuesta_categorias": ParticipacionPropuestaCategorias;
   "participacion.propuesta_territorios": ParticipacionPropuestaTerritorios;
   "participacion.propuestas": ParticipacionPropuestas;
+  "participacion.v_compromisos": ParticipacionVCompromisos;
   "participacion.v_necesidades_municipio": ParticipacionVNecesidadesMunicipio;
+  "participacion.v_necesidades_origen": ParticipacionVNecesidadesOrigen;
   "participacion.v_necesidades_sin_propuesta": ParticipacionVNecesidadesSinPropuesta;
   "personas.correos": PersonasCorreos;
   "personas.personas": PersonasPersonas;

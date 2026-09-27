@@ -10,6 +10,7 @@ import type { DB } from './db.types.js';
 // Coincide con los tipos generados (npm run db:tipos).
 pg.types.setTypeParser(pg.types.builtins.INT8, (valor) => Number.parseInt(valor, 10));
 pg.types.setTypeParser(pg.types.builtins.NUMERIC, (valor) => Number.parseFloat(valor));
+pg.types.setTypeParser(pg.types.builtins.DATE, (valor) => valor);
 
 @Global()
 @Module({
