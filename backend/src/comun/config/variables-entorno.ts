@@ -103,16 +103,33 @@ export class VariablesEntorno {
   @IsOptional()
   @IsIn(['true', 'false'], { message: 'TRUST_PROXY debe ser "true" o "false"' })
   TRUST_PROXY?: string;
+
+  /** Clave secreta de Cloudflare Turnstile (captcha del registro público).
+   * Opcional en desarrollo; obligatoria en producción (COOKIE_SEGURA=true). */
+  @IsOptional()
+  @Matches(/^\S{10,}$/, { message: 'TURNSTILE_SECRETO no tiene un formato válido' })
+  TURNSTILE_SECRETO?: string;
+
+  /** Clave pública de Turnstile (la usa el formulario público). Va junto con TURNSTILE_SECRETO. */
+  @IsOptional()
+  @Matches(/^\S{10,}$/, { message: 'TURNSTILE_SITEKEY no tiene un formato válido' })
+  TURNSTILE_SITEKEY?: string;
 }
 
 export function validarVariablesEntorno(config: Record<string, unknown>): VariablesEntorno {
-  const instancia = plainToInstance(VariablesEntorno, config, { enableImplicitConversion: true });
+  // Una variable opcional escrita vacía en .env (TURNSTILE_SITEKEY=) cuenta como no configurada.
+  const limpia = Object.fromEntries(Object.entries(config).filter(([, valor]) => valor !== ''));
+  const instancia = plainToInstance(VariablesEntorno, limpia, { enableImplicitConversion: true });
   const errores = validateSync(instancia, { skipMissingProperties: false });
-  if (errores.length > 0) {
-    const detalle = errores
-      .map((error) => `${error.property}: ${Object.values(error.constraints ?? {}).join('; ')}`)
-      .join(' | ');
-    throw new Error(`Configuración inválida al arrancar la API -> ${detalle}`);
+  const detalles = errores.map((error) => `${error.property}: ${Object.values(error.constraints ?? {}).join('; ')}`);
+  if (Boolean(instancia.TURNSTILE_SECRETO) !== Boolean(instancia.TURNSTILE_SITEKEY)) {
+    detalles.push('TURNSTILE_SECRETO y TURNSTILE_SITEKEY: se configuran los dos o ninguno');
+  }
+  if (instancia.COOKIE_SEGURA === 'true' && !instancia.TURNSTILE_SECRETO) {
+    detalles.push('TURNSTILE_SECRETO: es obligatorio en producción (COOKIE_SEGURA=true) para proteger el registro público');
+  }
+  if (detalles.length > 0) {
+    throw new Error(`Configuración inválida al arrancar la API -> ${detalles.join(' | ')}`);
   }
   return instancia;
 }

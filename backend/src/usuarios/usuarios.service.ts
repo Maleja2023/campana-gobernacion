@@ -41,8 +41,9 @@ export class UsuariosService {
     return this.database.comoUsuario(usuario.id, async (trx) => {
       const asignables = await this.repo.rolesPermitidos(trx);
       this.validarRoles(dto.roles, asignables);
-      await this.validarTerritorios(trx, dto.territorioIds);
-      this.validarReglasRoles(dto.roles, dto.territorioIds);
+      const territorioIds = await this.territoriosSegunRol(trx, dto.roles, dto.territorioIds);
+      await this.validarTerritorios(trx, territorioIds);
+      this.validarReglasRoles(dto.roles, territorioIds);
 
       const personaId = await this.resolverPersona(trx, dto);
       const existente = await this.repo.usuarioPorPersona(trx, personaId);
@@ -56,7 +57,7 @@ export class UsuariosService {
         passwordHash: await hashearClave(claveTemporal),
         personaId,
       });
-      await this.repo.reemplazarRolesYTerritorios(trx, usuarioNuevo.id, dto.roles, dto.territorioIds);
+      await this.repo.reemplazarRolesYTerritorios(trx, usuarioNuevo.id, dto.roles, territorioIds);
       return { usuarioId: usuarioNuevo.id, login, claveTemporal };
     });
   }
@@ -66,9 +67,9 @@ export class UsuariosService {
       this.validarNoPropio(actor, usuarioId);
       const objetivo = await this.usuarioAdministrable(trx, usuarioId);
       const roles = dto.roles ?? objetivo.roles;
-      const territorios = dto.territorioIds ?? objetivo.territorios;
       const asignables = await this.repo.rolesPermitidos(trx);
       this.validarRoles(roles, asignables);
+      const territorios = await this.territoriosSegunRol(trx, roles, dto.territorioIds ?? objetivo.territorios);
       await this.validarTerritorios(trx, territorios);
       this.validarReglasRoles(roles, territorios);
 
@@ -152,9 +153,21 @@ export class UsuariosService {
     if (roles.some((rol) => !asignables.includes(rol))) throw new PermisoError('No puede asignar uno de los roles solicitados');
   }
 
+  /** El candidato ve todo el departamento, siempre: se le asigna el Caquetá
+   * sin importar qué territorios se envíen. */
+  private async territoriosSegunRol(trx: Kysely<DB>, roles: string[], territorios: number[]): Promise<number[]> {
+    if (!roles.includes('CANDIDATO')) return territorios;
+    const departamento = await this.repo.departamentoId(trx);
+    if (departamento === undefined) throw new ReglaNegocioError('No hay departamento cargado');
+    return [departamento];
+  }
+
   private validarReglasRoles(roles: string[], territorios: number[]) {
     if (roles.includes('LIDER') && territorios.length) throw new ReglaNegocioError('Los líderes no pueden tener territorios asignados; ven su red');
     if (roles.includes('COORDINADOR') && !territorios.length) throw new ReglaNegocioError('Los coordinadores deben tener al menos un territorio');
+    if (roles.includes('DIGITADOR') && !territorios.length) {
+      throw new ReglaNegocioError('Los digitadores deben tener al menos un territorio: define a qué líderes pueden atribuir los registros');
+    }
   }
 
   private validarNoPropio(actor: UsuarioSesion, objetivoId: string) {

@@ -50,6 +50,29 @@ ya registrado a la vereda o al municipio correcto sin borrar ningún simpatizant
 Después ejecute `23_validar_link_publico.sql`: sin él, el formulario público de
 registro (`/r/<código>`) dice que todo enlace "no está activo".
 
+Y por último `24_historial_y_registro.sql`: crea el historial de cambios de cada
+simpatizante (registro, ediciones, retiro con su motivo y reactivación) y la
+lista de líderes que un digitador puede elegir según su territorio.
+
+## Roles
+
+| Rol | Qué ve | Qué hace | Doble factor |
+|---|---|---|---|
+| Superadministrador | Todo | Todo, incluida la administración técnica | Obligatorio |
+| Candidato | Todo el departamento (se le asigna solo) | Solo consulta y reportes | Obligatorio |
+| Gerente de campaña | Todo el departamento | Usuarios, coordinadores, metas, exportes, alertas | Obligatorio |
+| Coordinador municipal | Solo su municipio | Registra, edita y retira; gestiona su estructura | Obligatorio |
+| Líder / referidor | Solo sus referidos y su red | Registra y comparte su enlace | No |
+| Digitador | Nada (sin reportes) | Solo registra, atribuyendo a un líder de su territorio | No |
+| Testigo electoral | Solo el módulo del día de elecciones (fase 2) | — | No |
+
+## Captcha del registro público
+
+El formulario `/r/<código>` usa Cloudflare Turnstile. Configure
+`TURNSTILE_SITEKEY` y `TURNSTILE_SECRETO` en `backend/.env` (ver
+`backend/.env.example`). En desarrollo pueden quedar vacías; en producción
+(`COOKIE_SEGURA=true`) la API no arranca sin ellas.
+
 Para volver a empezar de cero: borrar la base (clic derecho > Delete) y repetir.
 
 ## Usuarios de la base

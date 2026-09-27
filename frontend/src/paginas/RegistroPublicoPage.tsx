@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { useParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/cliente';
+import { Captcha } from '../componentes/Captcha';
 import { Cargando, ErrorEstado } from '../componentes/Estados';
 import { Icono } from '../componentes/Icono';
 import { nombrePropio } from '../util/nombres';
@@ -17,6 +18,7 @@ type Datos = {
   territorioNombre: string;
   puestoId: string;
   puestoNombre: string;
+  necesidad: string;
   aceptaComunicaciones: boolean;
 };
 
@@ -31,18 +33,20 @@ const inicial: Datos = {
   territorioNombre: '',
   puestoId: '',
   puestoNombre: '',
+  necesidad: '',
   aceptaComunicaciones: false,
 };
 
 // 0 nombres, 1 documento, 2 celular, 3 municipio, 4 vereda/barrio,
-// 5 puesto de votación, 6 autorización, 7 resumen.
-const ULTIMO_STEP = 7;
+// 5 puesto de votación, 6 necesidad del sector, 7 autorización, 8 resumen.
+const ULTIMO_STEP = 8;
 
 export function RegistroPublicoPage() {
   const { codigo = '' } = useParams();
   const link = useQuery({ queryKey: ['registro-link', codigo], queryFn: () => api.validarLink(codigo), enabled: Boolean(codigo) });
   const municipios = useQuery({ queryKey: ['registro-municipios'], queryFn: api.municipios });
   const politica = useQuery({ queryKey: ['registro-politica'], queryFn: api.politicaRegistro });
+  const configuracion = useQuery({ queryKey: ['registro-configuracion'], queryFn: api.configuracionRegistro });
 
   const [step, setStep] = useState(0);
   const [datos, setDatos] = useState(inicial);
@@ -51,10 +55,13 @@ export function RegistroPublicoPage() {
   const [enviado, setEnviado] = useState(false);
   const [error, setError] = useState('');
   const [cargando, setCargando] = useState(false);
+  const [captcha, setCaptcha] = useState<string | null>(null);
+  const [ubicacion, setUbicacion] = useState<{ lon: number; lat: number } | null>(null);
+  const [estadoUbicacion, setEstadoUbicacion] = useState<'' | 'buscando' | 'error'>('');
 
   const puestos = useQuery({
     queryKey: ['registro-puestos', datos.municipioId],
-    queryFn: () => api.puestos(Number(datos.municipioId)),
+    queryFn: () => api.puestosCatalogo(Number(datos.municipioId)),
     enabled: Boolean(datos.municipioId) && step >= 5,
   });
 
@@ -112,6 +119,24 @@ export function RegistroPublicoPage() {
     avanzar();
   }
 
+  function compartirUbicacion() {
+    if (!navigator.geolocation) {
+      setEstadoUbicacion('error');
+      return;
+    }
+    setEstadoUbicacion('buscando');
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        // Cinco decimales (~1 m) bastan para ubicar el sector.
+        const redondear = (v: number) => Math.round(v * 1e5) / 1e5;
+        setUbicacion({ lon: redondear(pos.coords.longitude), lat: redondear(pos.coords.latitude) });
+        setEstadoUbicacion('');
+      },
+      () => setEstadoUbicacion('error'),
+      { enableHighAccuracy: false, timeout: 10_000, maximumAge: 60_000 },
+    );
+  }
+
   function elegirPuesto(id: string) {
     const nombre = puestos.data?.find((p) => String(p.id) === id)?.nombre ?? '';
     setDatos({ ...datos, puestoId: id, puestoNombre: nombre });
@@ -121,6 +146,11 @@ export function RegistroPublicoPage() {
     event.preventDefault();
     setError('');
     if (!politica.data) return;
+    const siteKey = configuracion.data?.captchaSiteKey;
+    if (siteKey && !captcha) {
+      setError('Confirma que no eres un robot antes de enviar.');
+      return;
+    }
     setCargando(true);
     try {
       const respuesta = await api.registroPublico({
@@ -131,6 +161,10 @@ export function RegistroPublicoPage() {
         telefono: datos.telefono || undefined,
         territorioId: Number(datos.territorioId),
         puestoId: datos.puestoId ? Number(datos.puestoId) : undefined,
+        necesidad: datos.necesidad.trim() || undefined,
+        lon: ubicacion?.lon,
+        lat: ubicacion?.lat,
+        captcha: captcha ?? undefined,
         finalidades: ['ORGANIZACION_CAMPANA', ...(datos.aceptaComunicaciones ? ['COMUNICACIONES'] : [])],
         politicaVersion: politica.data.version,
         aceptaPolitica: true,
@@ -139,6 +173,8 @@ export function RegistroPublicoPage() {
       void respuesta;
       setEnviado(true);
     } catch (cause) {
+      // Un token de captcha sirve una sola vez: tras un error hay que resolverlo de nuevo.
+      setCaptcha(null);
       setError(
         cause instanceof Error && cause.message.includes('Demasiados')
           ? 'Estás enviando muchas solicitudes, espera un minuto.'
@@ -189,11 +225,13 @@ export function RegistroPublicoPage() {
           {step >= 3 && <div className="bubble system">¿Cuál es tu celular? Es opcional.</div>}
           {step >= 3 && <div className="bubble person">{datos.telefono || 'Prefiero no darlo'}</div>}
           {step >= 4 && <div className="bubble system">¿En qué municipio vives?</div>}
-          {step >= 4 && <div className="bubble person">{datos.municipioNombre}</div>}
+          {step >= 4 && <div className="bubble person">{nombrePropio(datos.municipioNombre)}</div>}
           {step >= 5 && <div className="bubble system">¿En qué vereda o barrio?</div>}
-          {step >= 5 && <div className="bubble person">{veredaEsDistinta ? datos.territorioNombre : 'No la encontró en la búsqueda'}</div>}
+          {step >= 5 && <div className="bubble person">{veredaEsDistinta ? nombrePropio(datos.territorioNombre) : 'No la encontró en la búsqueda'}</div>}
           {step >= 6 && <div className="bubble system">¿En qué puesto de votación estás inscrito?</div>}
-          {step >= 6 && <div className="bubble person">{datos.puestoNombre || 'No sé, lo consulto después'}</div>}
+          {step >= 6 && <div className="bubble person">{datos.puestoNombre ? nombrePropio(datos.puestoNombre) : 'No sé, lo consulto después'}</div>}
+          {step >= 7 && <div className="bubble system">¿Cuál es la principal necesidad de tu vereda o barrio?</div>}
+          {step >= 7 && <div className="bubble person">{datos.necesidad.trim() || 'Prefiero no decirla ahora'}</div>}
         </div>
 
         <form onSubmit={step === ULTIMO_STEP ? enviar : (e) => { e.preventDefault(); avanzar(); }} className="chat-form">
@@ -249,7 +287,7 @@ export function RegistroPublicoPage() {
                 <option value="">Selecciona uno</option>
                 {municipios.data?.map((m) => (
                   <option key={m.id} value={m.id}>
-                    {m.nombre}
+                    {nombrePropio(m.nombre)}
                   </option>
                 ))}
               </select>
@@ -265,7 +303,7 @@ export function RegistroPublicoPage() {
               <div className="choice-list">
                 {veredaResultados.map((t) => (
                   <button type="button" key={t.id} onClick={() => elegirVereda(String(t.id), t.nombre)}>
-                    {t.nombre}
+                    {nombrePropio(t.nombre)}
                   </button>
                 ))}
                 <button type="button" className="choice-button" onClick={avanzar}>
@@ -282,7 +320,7 @@ export function RegistroPublicoPage() {
                 <option value="">No sé / lo consulto después</option>
                 {puestos.data?.map((p) => (
                   <option key={p.id} value={p.id}>
-                    {p.nombre}
+                    {nombrePropio(p.nombre)}
                   </option>
                 ))}
               </select>
@@ -297,6 +335,24 @@ export function RegistroPublicoPage() {
           )}
 
           {step === 6 && (
+            <>
+              <label>
+                Necesidad principal de tu sector <span className="optional">opcional</span>
+                <textarea
+                  autoFocus
+                  value={datos.necesidad}
+                  maxLength={500}
+                  placeholder="Ejemplo: la vía a la vereda está en mal estado"
+                  onChange={(e) => setDatos({ ...datos, necesidad: e.target.value })}
+                />
+              </label>
+              <button type="button" className="choice-button" onClick={() => { setDatos({ ...datos, necesidad: '' }); avanzar(); }}>
+                Prefiero no decirla ahora
+              </button>
+            </>
+          )}
+
+          {step === 7 && (
             <div className="policy-step">
               <details>
                 <summary>Leer política de tratamiento de datos</summary>
@@ -313,7 +369,7 @@ export function RegistroPublicoPage() {
             </div>
           )}
 
-          {step === 7 && (
+          {step === 8 && (
             <div className="summary-step">
               <h2>Revisa tus respuestas</h2>
               <dl className="summary-list">
@@ -347,7 +403,7 @@ export function RegistroPublicoPage() {
                 <div>
                   <dt>Municipio</dt>
                   <dd>
-                    {datos.municipioNombre}
+                    {nombrePropio(datos.municipioNombre)}
                     <button type="button" className="link-button" onClick={() => ir(3)}>
                       Editar
                     </button>
@@ -356,7 +412,7 @@ export function RegistroPublicoPage() {
                 <div>
                   <dt>Vereda o barrio</dt>
                   <dd>
-                    {veredaEsDistinta ? datos.territorioNombre : 'A nivel de municipio (no se encontró una más específica)'}
+                    {veredaEsDistinta ? nombrePropio(datos.territorioNombre) : 'A nivel de municipio (no se encontró una más específica)'}
                     <button type="button" className="link-button" onClick={() => ir(4)}>
                       Editar
                     </button>
@@ -365,8 +421,17 @@ export function RegistroPublicoPage() {
                 <div>
                   <dt>Puesto de votación</dt>
                   <dd>
-                    {datos.puestoNombre || 'No informado'}
+                    {datos.puestoNombre ? nombrePropio(datos.puestoNombre) : 'No informado'}
                     <button type="button" className="link-button" onClick={() => ir(5)}>
+                      Editar
+                    </button>
+                  </dd>
+                </div>
+                <div>
+                  <dt>Necesidad del sector</dt>
+                  <dd>
+                    {datos.necesidad.trim() || 'No informada'}
+                    <button type="button" className="link-button" onClick={() => ir(6)}>
                       Editar
                     </button>
                   </dd>
@@ -375,12 +440,28 @@ export function RegistroPublicoPage() {
                   <dt>Comunicaciones de la campaña</dt>
                   <dd>
                     {datos.aceptaComunicaciones ? 'Acepta recibirlas' : 'No desea recibirlas'}
-                    <button type="button" className="link-button" onClick={() => ir(6)}>
+                    <button type="button" className="link-button" onClick={() => ir(7)}>
                       Editar
                     </button>
                   </dd>
                 </div>
               </dl>
+              <div style={{ display: 'grid', gap: 8, marginTop: 12 }}>
+                {ubicacion ? (
+                  <span style={{ fontSize: 13, color: 'var(--texto-2)' }}>
+                    Ubicación compartida.{' '}
+                    <button type="button" className="link-button" onClick={() => setUbicacion(null)}>
+                      Quitar
+                    </button>
+                  </span>
+                ) : (
+                  <button type="button" className="choice-button" style={{ justifySelf: 'start' }} disabled={estadoUbicacion === 'buscando'} onClick={compartirUbicacion}>
+                    {estadoUbicacion === 'buscando' ? 'Obteniendo ubicación…' : 'Compartir mi ubicación (opcional)'}
+                  </button>
+                )}
+                {estadoUbicacion === 'error' && <small style={{ color: 'var(--texto-3)' }}>No fue posible obtener la ubicación. Puedes enviar el registro sin ella.</small>}
+                {configuracion.data?.captchaSiteKey && <Captcha siteKey={configuracion.data.captchaSiteKey} onToken={setCaptcha} />}
+              </div>
             </div>
           )}
 

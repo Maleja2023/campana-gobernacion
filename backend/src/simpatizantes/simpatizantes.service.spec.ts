@@ -1,7 +1,8 @@
 import { ConfigService } from '@nestjs/config';
 import type { Transaction } from 'kysely';
 import { CifradoService } from '../cifrado/cifrado.service.js';
-import { NoEncontradoError } from '../comun/errores/errores-dominio.js';
+import type { CaptchaService } from '../comun/captcha/captcha.service.js';
+import { NoEncontradoError, ReglaNegocioError } from '../comun/errores/errores-dominio.js';
 import type { DatabaseService } from '../database/database.service.js';
 import type { DB } from '../database/db.types.js';
 import type { UsuarioSesion } from '../auth/auth.types.js';
@@ -50,6 +51,12 @@ describe('SimpatizantesService', () => {
     visible: vi.fn(async () => true),
     editar: vi.fn(async (_trx: unknown, _datos: Datos) => undefined),
     retirar: vi.fn(async () => undefined),
+    reactivar: vi.fn(async () => undefined),
+    historial: vi.fn(async () => [] as unknown[]),
+    lideresParaRegistro: vi.fn(async () => [{ codigo_link: 'ABCD1234' }] as unknown[]),
+    linkPrincipalDeUsuario: vi.fn(async () => undefined as { codigo: string } | undefined),
+    jornadaMasReciente: vi.fn(async () => ({ id: 1 })),
+    registrar: vi.fn(async (_trx: unknown, _datos: Datos) => ({ resultado: 'REGISTRADO', persona_id: PERSONA, mensaje: 'ok' })),
     descendientesDe: vi.fn(async () => [11, 12]),
     paraExportar: vi.fn(async () => [] as unknown[]),
     registrarExportacion: vi.fn(async (_trx: unknown, _datos: Datos) => {
@@ -58,10 +65,13 @@ describe('SimpatizantesService', () => {
     }),
   };
 
+  const captcha = { verificar: vi.fn(async () => undefined) };
+
   const servicio = new SimpatizantesService(
     database as unknown as DatabaseService,
     cifrado,
     repo as unknown as SimpatizantesRepositorio,
+    captcha as unknown as CaptchaService,
   );
 
   beforeEach(() => {
@@ -156,19 +166,92 @@ describe('SimpatizantesService', () => {
     });
   });
 
+  describe('editar() parcial', () => {
+    it('rechaza una edición sin ningún campo', async () => {
+      await expect(servicio.editar(USUARIO, PERSONA, {} as EditarSimpatizanteDto)).rejects.toBeInstanceOf(ReglaNegocioError);
+      expect(repo.editar).not.toHaveBeenCalled();
+    });
+
+    it('pasa en null los campos que no se envían y el puesto cuando sí se envía', async () => {
+      await servicio.editar(USUARIO, PERSONA, { puestoId: 30 } as EditarSimpatizanteDto);
+
+      expect(datosEditados()).toMatchObject({ nombres: null, apellidos: null, territorioId: null, puestoId: 30 });
+    });
+  });
+
   describe('retirar()', () => {
     it('lanza NoEncontradoError y no retira cuando la persona no es visible para el usuario', async () => {
       repo.visible.mockResolvedValue(false);
 
-      await expect(servicio.retirar(USUARIO, PERSONA)).rejects.toBeInstanceOf(NoEncontradoError);
+      await expect(servicio.retirar(USUARIO, PERSONA, 'Se mudó de municipio')).rejects.toBeInstanceOf(NoEncontradoError);
       expect(repo.retirar).not.toHaveBeenCalled();
     });
 
-    it('retira cuando la persona sí es visible, dentro de la transacción del usuario', async () => {
-      await expect(servicio.retirar(USUARIO, PERSONA)).resolves.toEqual({ mensaje: 'Simpatizante retirado' });
+    it('retira con el motivo recortado, dentro de la transacción del usuario', async () => {
+      await expect(servicio.retirar(USUARIO, PERSONA, '  Se mudó de municipio ')).resolves.toEqual({ mensaje: 'Simpatizante retirado' });
 
       expect(database.comoUsuario).toHaveBeenCalledWith(USUARIO.id, expect.any(Function));
-      expect(repo.retirar).toHaveBeenCalledWith(trxFalso, PERSONA);
+      expect(repo.retirar).toHaveBeenCalledWith(trxFalso, PERSONA, 'Se mudó de municipio');
+    });
+  });
+
+  describe('reactivar() e historial()', () => {
+    it('no reactiva a una persona que no es visible', async () => {
+      repo.visible.mockResolvedValue(false);
+
+      await expect(servicio.reactivar(USUARIO, PERSONA)).rejects.toBeInstanceOf(NoEncontradoError);
+      expect(repo.reactivar).not.toHaveBeenCalled();
+    });
+
+    it('no entrega el historial de una persona que no es visible', async () => {
+      repo.visible.mockResolvedValue(false);
+
+      await expect(servicio.historial(USUARIO, PERSONA)).rejects.toBeInstanceOf(NoEncontradoError);
+      expect(repo.historial).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('autorregistro()', () => {
+    it('no registra nada si el captcha falla', async () => {
+      captcha.verificar.mockRejectedValueOnce(new ReglaNegocioError('captcha'));
+
+      await expect(
+        servicio.autorregistro({ captcha: 'x', codigoLink: 'ABCD1234' } as never, '1.2.3.4', null),
+      ).rejects.toBeInstanceOf(ReglaNegocioError);
+      expect(captcha.verificar).toHaveBeenCalledWith('x', '1.2.3.4');
+      expect(repo.registrar).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('crear() con líder que refiere', () => {
+    const dtoRegistro = (extra: Record<string, unknown> = {}) =>
+      ({
+        documento: '1234567',
+        nombres: 'Ana',
+        apellidos: 'Pérez',
+        territorioId: 10,
+        finalidades: ['ORGANIZACION_CAMPANA'],
+        politicaVersion: 1,
+        aceptaPolitica: true,
+        canal: 'FORMULARIO_WEB',
+        ...extra,
+      }) as never;
+
+    it('rechaza un líder que no está dentro del alcance del usuario', async () => {
+      await expect(servicio.crear(dtoRegistro({ codigoLink: 'OTRO9999' }), USUARIO, null, null)).rejects.toBeInstanceOf(ReglaNegocioError);
+      expect(repo.registrar).not.toHaveBeenCalled();
+    });
+
+    it('acepta un líder de su alcance aunque venga en minúsculas', async () => {
+      await servicio.crear(dtoRegistro({ codigoLink: 'abcd1234' }), USUARIO, null, null);
+
+      expect(repo.registrar.mock.calls[0][1]).toMatchObject({ codigoLink: 'ABCD1234', canal: 'DIGITADOR' });
+    });
+
+    it('pide elegir el líder cuando el usuario no tiene enlace propio', async () => {
+      repo.linkPrincipalDeUsuario.mockResolvedValue(undefined);
+
+      await expect(servicio.crear(dtoRegistro(), USUARIO, null, null)).rejects.toThrow('Elija el líder que refiere a la persona');
     });
   });
 

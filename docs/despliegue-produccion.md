@@ -95,6 +95,7 @@ Internet ──> Cloudflare (WAF, anti-DDoS, HTTPS)
    node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"   # PEPPER_HMAC y LLAVE_CIFRADO
    ```
    - `NODE_ENV=production`, `TRUST_PROXY` activado, `CORS_ORIGENES` con el dominio real.
+   - `TURNSTILE_SITEKEY` y `TURNSTILE_SECRETO`: créalas en el panel de Cloudflare (Turnstile → Add widget, con el dominio del formulario público). Con `COOKIE_SEGURA=true` la API no arranca sin ellas.
    - Permisos del archivo: `chmod 600`, dueño `campana`.
    - **`PEPPER_HMAC` y `LLAVE_CIFRADO` no pueden cambiar nunca** una vez haya datos: sin ellas, las cédulas quedan ilegibles y los duplicados dejan de detectarse. Guarda una copia en el gestor de contraseñas y otra impresa en un lugar físico seguro.
 4. Servicio con systemd (`/etc/systemd/system/campana-api.service`):

@@ -53,6 +53,15 @@ export class UsuariosRepositorio {
     return rows;
   }
 
+  async departamentoId(db: Kysely<DB>): Promise<number | undefined> {
+    const fila = await db
+      .selectFrom('territorio.territorios')
+      .select('id')
+      .where('tipo_codigo', '=', 'DEPARTAMENTO')
+      .executeTakeFirst();
+    return fila?.id;
+  }
+
   async rolesPermitidos(db: Kysely<DB>): Promise<string[]> {
     const { rows } = await sql<{ rol_codigo: string }>`select rol_codigo from acceso.roles_que_puedo_asignar()`.execute(db);
     return rows.map((r) => r.rol_codigo);

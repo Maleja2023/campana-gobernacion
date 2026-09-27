@@ -356,9 +356,14 @@ function CrearUsuarioForm({ roles, miembros, onDone }: { roles: RolAsignable[]; 
           </button>
         ))}
       </fieldset>
+      {rolesElegidos.includes('CANDIDATO') ? (
+        <p className="territorio-elegido">El candidato ve todo el Caquetá: se le asigna el departamento completo.</p>
+      ) : rolesElegidos.length > 0 && rolesElegidos.every((r) => r === 'LIDER') ? (
+        <p className="territorio-elegido">Los líderes ven solo a sus referidos y su red: no llevan territorio.</p>
+      ) : (
       <div className="territorio-editor">
         <label>
-          Agregar territorio <span className="optional">necesario para coordinadores</span>
+          Agregar territorio <span className="optional">obligatorio para coordinadores y digitadores; define qué datos ve</span>
           <input placeholder="Escribe el nombre" value={texto} onChange={(e) => void buscarTerritorio(e.target.value)} />
         </label>
         {resultados.length > 0 && (
@@ -383,6 +388,7 @@ function CrearUsuarioForm({ roles, miembros, onDone }: { roles: RolAsignable[]; 
           </ul>
         )}
       </div>
+      )}
       {error && (
         <div className="form-error" role="alert">
           {error}
