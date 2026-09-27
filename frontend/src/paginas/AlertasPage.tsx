@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link } from 'react-router';
 import { api, type Alerta } from '../api/cliente';
 import { Cargando, ErrorEstado } from '../componentes/Estados';
 import { nombrePropio } from '../util/nombres';
@@ -35,6 +36,10 @@ export function AlertasPage() {
         <div>
           <p className="eyebrow">Calidad de datos</p>
           <h1>Alertas</h1>
+          <p className="dashboard-subtitle">
+            Se generan solas: cédulas que dos líderes intentan registrar, un mismo teléfono en varias personas, muchos registros de un mismo enlace en pocos minutos y
+            ubicaciones que no coinciden con la vereda. El puntaje de cada líder está en <Link to="/reportes">Reportes → Calidad por líder</Link>.
+          </p>
         </div>
       </div>
 

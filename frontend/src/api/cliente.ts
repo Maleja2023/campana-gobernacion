@@ -235,7 +235,24 @@ export type Indicadores = {
   necesidades_reportadas: number | null;
 };
 export type FiltrosReporte = { municipioId?: number; miembroId?: string; desde?: string; hasta?: string };
-export type TipoReporte = 'MUNICIPIOS' | 'LIDERES' | 'PUESTOS' | 'PROYECCION';
+export type TipoReporte = 'MUNICIPIOS' | 'LIDERES' | 'PUESTOS' | 'PROYECCION' | 'CALIDAD';
+export type FilaCalidad = {
+  miembro_id: string;
+  nombre: string;
+  cargo_codigo: string;
+  municipio: string | null;
+  registros: number;
+  con_telefono_pct: string | null;
+  con_puesto_pct: string | null;
+  con_zona_pct: string | null;
+  intentos_duplicado: number;
+  personas_en_alertas: number;
+  retirados: number;
+  completitud: string;
+  confiabilidad: string;
+  puntaje: number | null;
+  nivel: 'ALTA' | 'MEDIA' | 'BAJA' | 'SIN_DATOS';
+};
 export type FilaReporteMunicipio = {
   municipio_id: number;
   municipio: string;
@@ -403,6 +420,7 @@ export const api = {
   reporteMunicipios: (f: FiltrosReporte) => cliente.get<FilaReporteMunicipio[]>(`/reportes/municipios${consulta(f)}`),
   reporteLideres: (f: FiltrosReporte) => cliente.get<FilaReporteLider[]>(`/reportes/lideres${consulta(f)}`),
   reportePuestos: (f: FiltrosReporte) => cliente.get<FilaReportePuesto[]>(`/reportes/puestos${consulta(f)}`),
+  reporteCalidad: (f: FiltrosReporte) => cliente.get<FilaCalidad[]>(`/reportes/calidad${consulta(f)}`),
   proyeccionMetas: () => cliente.get<FilaProyeccion[]>('/reportes/proyeccion'),
   exportarReporte: (body: FiltrosReporte & { reporte: TipoReporte; motivo: string }) => cliente.archivo('/reportes/exportar', body),
   bitacoraExportaciones: () => cliente.get<FilaBitacora[]>('/reportes/exportaciones?limite=200'),

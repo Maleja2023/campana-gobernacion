@@ -31,6 +31,13 @@ export class ReportesController {
     return this.reportes.puestos(usuario, q);
   }
 
+  /** GET /api/reportes/calidad: puntaje de calidad (0 a 100) de cada líder visible, con su desglose. */
+  @Get('calidad')
+  @RequierePermiso('REPORTE_VER')
+  calidad(@UsuarioActual() usuario: UsuarioSesion, @Query() q: ReporteQueryDto) {
+    return this.reportes.calidad(usuario, q);
+  }
+
   /** GET /api/reportes/proyeccion: cumplimiento proyectado de cada meta visible. */
   @Get('proyeccion')
   @RequierePermiso('REPORTE_VER')

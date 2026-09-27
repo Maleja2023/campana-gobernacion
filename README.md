@@ -75,6 +75,10 @@ indicadores con crecimiento y avance de la meta, reportes por municipio y
 por líder, proyección de metas y bitácora de exportaciones (pantalla
 "Reportes"). La meta de un miembro ahora cuenta toda su red.
 
+Y `31_calidad.sql`: la alerta de registro masivo usa la hora de captura (ya
+no salta al enviar juntos los registros hechos sin conexión) y puntaje de
+calidad de 0 a 100 por líder (Reportes → Calidad por líder).
+
 ## Registro sin conexión
 
 En `/registrar` se puede registrar sin señal (veredas sin cobertura):

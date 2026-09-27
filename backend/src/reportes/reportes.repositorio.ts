@@ -44,6 +44,17 @@ export class ReportesRepositorio {
     return rows;
   }
 
+  async calidad(db: Kysely<DB>, f: ReporteQueryDto) {
+    const { rows } = await sql<Record<string, unknown>>`
+      select q.* from calidad.puntaje_lideres() q
+       where (${f.municipioId ?? null}::integer is null or campana.municipio_id_de_miembro(q.miembro_id) = ${f.municipioId ?? null}::integer)
+         and (${f.miembroId ?? null}::uuid is null
+              or q.miembro_id in (select miembro_id from campana.subordinados(${f.miembroId ?? null}::uuid)))
+       order by q.puntaje nulls last, q.nombre
+    `.execute(db);
+    return rows;
+  }
+
   async registrarExportacion(db: Kysely<DB>, datos: { motivo: string; cantidad: number; territorios: number[]; recurso: string }) {
     await sql`
       select auditoria.registrar_exportacion(${datos.motivo}, 'XLSX', ${datos.cantidad}, ${sql.val(datos.territorios)}::integer[], ${datos.recurso})

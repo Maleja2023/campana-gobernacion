@@ -25,7 +25,7 @@ export class ReporteQueryDto {
   hasta?: string;
 }
 
-export const REPORTES = ['MUNICIPIOS', 'LIDERES', 'PUESTOS', 'PROYECCION'] as const;
+export const REPORTES = ['MUNICIPIOS', 'LIDERES', 'PUESTOS', 'PROYECCION', 'CALIDAD'] as const;
 export type TipoReporte = (typeof REPORTES)[number];
 
 export class ExportarReporteDto extends ReporteQueryDto {

@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import {
   api,
   type EstadoProyeccion,
+  type FilaCalidad,
   type FiltrosReporte,
   type FilaProyeccion,
   type FilaReporteLider,
@@ -51,6 +52,7 @@ export function ReportesPage() {
     ['LIDERES', 'Por líder'],
     ['PUESTOS', 'Por puesto'],
     ['PROYECCION', 'Proyección de metas'],
+    ['CALIDAD', 'Calidad por líder'],
     ...(verBitacora ? ([['BITACORA', 'Bitácora de exportes']] as [Tab, string][]) : []),
   ];
 
@@ -75,7 +77,7 @@ export function ReportesPage() {
     }
   }
 
-  const conFiltros = tab === 'MUNICIPIOS' || tab === 'LIDERES' || tab === 'PUESTOS';
+  const conFiltros = tab === 'MUNICIPIOS' || tab === 'LIDERES' || tab === 'PUESTOS' || tab === 'CALIDAD';
 
   return (
     <main className="page-content reportes-page">
@@ -170,7 +172,7 @@ export function ReportesPage() {
               Quitar filtros
             </button>
           )}
-          <small className="helper">"En el periodo" cuenta los registros entre esas fechas; las demás columnas son acumuladas.</small>
+          {tab !== 'CALIDAD' && <small className="helper">"En el periodo" cuenta los registros entre esas fechas; las demás columnas son acumuladas.</small>}
         </section>
       )}
 
@@ -178,6 +180,7 @@ export function ReportesPage() {
       {tab === 'LIDERES' && <ReporteLideres filtros={filtros} />}
       {tab === 'PUESTOS' && <ReportePuestos filtros={filtros} />}
       {tab === 'PROYECCION' && <ReporteProyeccion />}
+      {tab === 'CALIDAD' && <ReporteCalidad filtros={filtros} />}
       {tab === 'BITACORA' && <Bitacora />}
     </main>
   );
@@ -427,7 +430,78 @@ function ReporteProyeccion() {
   );
 }
 
+const NIVEL: Record<FilaCalidad['nivel'], { etiqueta: string; clase: string }> = {
+  ALTA: { etiqueta: 'Alta', clase: 'estado-activo' },
+  MEDIA: { etiqueta: 'Media', clase: 'severidad-media' },
+  BAJA: { etiqueta: 'Baja', clase: 'severidad-alta' },
+  SIN_DATOS: { etiqueta: 'Sin registros', clase: '' },
+};
+
+function ReporteCalidad({ filtros }: { filtros: FiltrosReporte }) {
+  const q = useQuery({ queryKey: ['reporte', 'calidad', filtros.municipioId, filtros.miembroId], queryFn: () => api.reporteCalidad(filtros) });
+  return (
+    <>
+      <details className="chart-alt" style={{ marginBottom: 12 }}>
+        <summary>¿Cómo se calcula el puntaje?</summary>
+        <ul className="reconocimientos-guia">
+          <li>
+            <strong>Completitud (40 puntos):</strong> registros con teléfono (15), con puesto de votación (15) y con vereda o barrio, no solo el municipio (10).
+          </li>
+          <li>
+            <strong>Confiabilidad (60 puntos):</strong> baja con los intentos de registrar cédulas que ya tenía otro líder, las personas en alertas abiertas o
+            confirmadas (las descartadas no cuentan; pesan el doble) y los registros retirados. Con 10 % de problemas queda en la mitad; con 20 % o más, en cero.
+          </li>
+          <li>
+            <strong>Nivel:</strong> alta desde 80, media de 60 a 79, baja por debajo de 60. Las fechas no aplican: el puntaje mira todos los registros del líder.
+          </li>
+        </ul>
+      </details>
+      <Tabla query={q} vacio="No hay líderes en tu alcance con estos filtros.">
+        <thead>
+          <tr>
+            <th>Líder</th>
+            <th className="num">Registros</th>
+            <th className="num">Con teléfono</th>
+            <th className="num">Con puesto</th>
+            <th className="num">Con vereda o barrio</th>
+            <th className="num">Duplicados</th>
+            <th className="num">En alertas</th>
+            <th className="num">Retirados</th>
+            <th className="num">Puntaje</th>
+          </tr>
+        </thead>
+        <tbody>
+          {q.data?.map((f) => (
+            <tr key={f.miembro_id}>
+              <td>
+                <strong>{nombrePropio(f.nombre)}</strong>
+                <small>
+                  {CARGO[f.cargo_codigo] ?? f.cargo_codigo}
+                  {f.municipio ? ` · ${nombrePropio(f.municipio)}` : ''}
+                </small>
+              </td>
+              <td className="num">{n(f.registros)}</td>
+              <td className="num">{pct(f.con_telefono_pct)}</td>
+              <td className="num">{pct(f.con_puesto_pct)}</td>
+              <td className="num">{pct(f.con_zona_pct)}</td>
+              <td className="num">{n(f.intentos_duplicado)}</td>
+              <td className="num">{n(f.personas_en_alertas)}</td>
+              <td className="num">{n(f.retirados)}</td>
+              <td className="num">
+                <span className={`estado-pill puntaje ${NIVEL[f.nivel].clase}`} title={`Completitud ${f.completitud} de 40 · confiabilidad ${f.confiabilidad} de 60`}>
+                  {f.puntaje ?? '—'} · {NIVEL[f.nivel].etiqueta}
+                </span>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </Tabla>
+    </>
+  );
+}
+
 const RECURSOS: Record<string, string> = {
+  REPORTE_CALIDAD: 'Calidad por líder',
   SIMPATIZANTES: 'Lista de simpatizantes',
   REPORTE_MUNICIPIOS: 'Reporte por municipio',
   REPORTE_LIDERES: 'Reporte por líder',

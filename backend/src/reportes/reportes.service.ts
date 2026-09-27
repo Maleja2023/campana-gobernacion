@@ -74,6 +74,25 @@ export const COLUMNAS: Record<TipoReporte, { titulo: string; columnas: ColumnaRe
       { titulo: 'Estado', clave: 'estado', ancho: 14 },
     ],
   },
+  CALIDAD: {
+    titulo: 'Calidad por líder',
+    columnas: [
+      { titulo: 'Líder', clave: 'nombre', ancho: 30 },
+      { titulo: 'Cargo', clave: 'cargo_codigo', ancho: 12 },
+      { titulo: 'Municipio', clave: 'municipio', ancho: 24 },
+      { titulo: 'Registros activos', clave: 'registros', tipo: 'numero' },
+      { titulo: 'Con teléfono', clave: 'con_telefono_pct', tipo: 'porcentaje' },
+      { titulo: 'Con puesto', clave: 'con_puesto_pct', tipo: 'porcentaje' },
+      { titulo: 'Con vereda o barrio', clave: 'con_zona_pct', tipo: 'porcentaje', ancho: 18 },
+      { titulo: 'Intentos duplicados', clave: 'intentos_duplicado', tipo: 'numero' },
+      { titulo: 'Personas en alertas', clave: 'personas_en_alertas', tipo: 'numero' },
+      { titulo: 'Retirados', clave: 'retirados', tipo: 'numero' },
+      { titulo: 'Completitud (de 40)', clave: 'completitud', ancho: 18 },
+      { titulo: 'Confiabilidad (de 60)', clave: 'confiabilidad', ancho: 20 },
+      { titulo: 'Puntaje (de 100)', clave: 'puntaje', tipo: 'numero', ancho: 16 },
+      { titulo: 'Nivel', clave: 'nivel', ancho: 12 },
+    ],
+  },
 };
 
 @Injectable()
@@ -96,6 +115,10 @@ export class ReportesService {
   puestos(usuario: UsuarioSesion, f: ReporteQueryDto) {
     this.validarRango(f);
     return this.database.comoUsuario(usuario.id, (trx) => this.repo.puestos(trx, f));
+  }
+
+  calidad(usuario: UsuarioSesion, f: ReporteQueryDto) {
+    return this.database.comoUsuario(usuario.id, (trx) => this.repo.calidad(trx, f));
   }
 
   proyeccion(usuario: UsuarioSesion) {
@@ -137,6 +160,8 @@ export class ReportesService {
         return this.repo.puestos(trx, dto);
       case 'PROYECCION':
         return this.repo.proyeccion(trx);
+      case 'CALIDAD':
+        return this.repo.calidad(trx, dto);
     }
   }
 
