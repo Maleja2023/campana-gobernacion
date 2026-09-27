@@ -218,6 +218,8 @@ export type MiembroRed = {
   camino: string[];
   activos: number | null;
   ultimo_registro: string | null;
+  /** true en la fila de la persona que tiene la sesión. */
+  es_propio?: boolean;
 };
 export type LinkRegistro = { valido: boolean; lider?: string };
 export type PoliticaRegistro = { version: number; texto: string; finalidades: { codigo: string; descripcion: string }[] };

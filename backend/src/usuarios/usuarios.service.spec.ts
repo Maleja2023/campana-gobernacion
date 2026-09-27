@@ -22,6 +22,7 @@ describe('UsuariosService: reglas por rol', () => {
     reemplazarRolesYTerritorios: vi.fn(async () => undefined),
     actualizarActivo: vi.fn(async () => undefined),
     cerrarSesionesDe: vi.fn(async () => undefined),
+    esMunicipio: vi.fn(async (_t: unknown, id: number) => id === 2 || id === 3),
   };
   const servicio = new UsuariosService(database as unknown as DatabaseService, {} as never, repo as never, {} as never, {} as never);
 
@@ -46,5 +47,18 @@ describe('UsuariosService: reglas por rol', () => {
   it('el coordinador debe tener su municipio', async () => {
     await expect(servicio.actualizar(ACTOR, OBJETIVO, { roles: ['COORDINADOR'], territorioIds: [] })).rejects.toBeInstanceOf(ReglaNegocioError);
     await expect(servicio.actualizar(ACTOR, OBJETIVO, { roles: ['COORDINADOR'], territorioIds: [2] })).resolves.toMatchObject({ territorioIds: [2] });
+  });
+
+  it('el coordinador tiene un solo municipio, no varios ni una vereda', async () => {
+    await expect(servicio.actualizar(ACTOR, OBJETIVO, { roles: ['COORDINADOR'], territorioIds: [2, 3] })).rejects.toThrow('un solo municipio');
+    await expect(servicio.actualizar(ACTOR, OBJETIVO, { roles: ['COORDINADOR'], territorioIds: [500] })).rejects.toThrow('debe ser un municipio');
+    expect(repo.reemplazarRolesYTerritorios).not.toHaveBeenCalled();
+  });
+
+  it('activar o desactivar a un coordinador antiguo no revalida su municipio', async () => {
+    repo.rolesDeUsuario.mockResolvedValueOnce([{ rol_codigo: 'COORDINADOR' }]);
+    repo.territoriosDeUsuario.mockResolvedValueOnce([{ territorio_id: 2 }, { territorio_id: 3 }]);
+    await expect(servicio.actualizar(ACTOR, OBJETIVO, { activo: false })).resolves.toMatchObject({ activo: false });
+    expect(repo.esMunicipio).not.toHaveBeenCalled();
   });
 });

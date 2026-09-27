@@ -75,6 +75,28 @@ export class UsuariosRepositorio {
     return rows.map((r) => r.territorio_id);
   }
 
+  async esMunicipio(db: Kysely<DB>, territorioId: number): Promise<boolean> {
+    const fila = await db
+      .selectFrom('territorio.territorios')
+      .select('id')
+      .where('id', '=', territorioId)
+      .where('tipo_codigo', '=', 'MUNICIPIO')
+      .executeTakeFirst();
+    return Boolean(fila);
+  }
+
+  async municipioDeMiembro(db: Kysely<DB>, miembroId: string): Promise<{ tieneTerritorio: boolean; municipioId: number | null }> {
+    const { rows } = await sql<{ tiene: boolean; municipio_id: number | null }>`
+      select exists (select 1 from campana.miembro_territorios where miembro_id = ${miembroId}::uuid) as tiene,
+             campana.municipio_id_de_miembro(${miembroId}::uuid) as municipio_id
+    `.execute(db);
+    return { tieneTerritorio: rows[0].tiene, municipioId: rows[0].municipio_id };
+  }
+
+  async asignarTerritorioMiembro(db: Kysely<DB>, miembroId: string, territorioId: number): Promise<void> {
+    await db.insertInto('campana.miembro_territorios').values({ miembro_id: miembroId, territorio_id: territorioId }).execute();
+  }
+
   personaDeMiembroEnRed(db: Kysely<DB>, miembroId: string) {
     return sql<{ persona_id: string }>`
       select m.persona_id from campana.miembros m where m.id = ${miembroId}::uuid and m.id in (select miembro_id from campana.mi_red())

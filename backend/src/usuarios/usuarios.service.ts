@@ -44,8 +44,10 @@ export class UsuariosService {
       const territorioIds = await this.territoriosSegunRol(trx, dto.roles, dto.territorioIds);
       await this.validarTerritorios(trx, territorioIds);
       this.validarReglasRoles(dto.roles, territorioIds);
+      await this.validarMunicipioCoordinador(trx, dto.roles, territorioIds);
 
       const personaId = await this.resolverPersona(trx, dto);
+      if (dto.miembroId && dto.roles.includes('COORDINADOR')) await this.alinearMunicipioMiembro(trx, dto.miembroId, territorioIds[0]);
       const existente = await this.repo.usuarioPorPersona(trx, personaId);
       if (existente) throw new ConflictoError('La persona ya tiene un usuario');
 
@@ -72,6 +74,8 @@ export class UsuariosService {
       const territorios = await this.territoriosSegunRol(trx, roles, dto.territorioIds ?? objetivo.territorios);
       await this.validarTerritorios(trx, territorios);
       this.validarReglasRoles(roles, territorios);
+      // Solo al cambiar roles o territorios: activar/desactivar no revalida el municipio.
+      if (dto.roles !== undefined || dto.territorioIds !== undefined) await this.validarMunicipioCoordinador(trx, roles, territorios);
 
       if (dto.activo !== undefined) {
         await this.repo.actualizarActivo(trx, usuarioId, dto.activo);
@@ -164,9 +168,27 @@ export class UsuariosService {
 
   private validarReglasRoles(roles: string[], territorios: number[]) {
     if (roles.includes('LIDER') && territorios.length) throw new ReglaNegocioError('Los líderes no pueden tener territorios asignados; ven su red');
-    if (roles.includes('COORDINADOR') && !territorios.length) throw new ReglaNegocioError('Los coordinadores deben tener al menos un territorio');
+    if (roles.includes('COORDINADOR') && !territorios.length) throw new ReglaNegocioError('Indique el municipio del coordinador');
     if (roles.includes('DIGITADOR') && !territorios.length) {
       throw new ReglaNegocioError('Los digitadores deben tener al menos un territorio: define a qué líderes pueden atribuir los registros');
+    }
+  }
+
+  /** Un coordinador pertenece a un solo municipio: ve y gestiona a los líderes de ese municipio. */
+  private async validarMunicipioCoordinador(trx: Kysely<DB>, roles: string[], territorios: number[]) {
+    if (!roles.includes('COORDINADOR')) return;
+    if (territorios.length !== 1) throw new ReglaNegocioError('El coordinador debe tener un solo municipio');
+    if (!(await this.repo.esMunicipio(trx, territorios[0]))) throw new ReglaNegocioError('El territorio del coordinador debe ser un municipio');
+  }
+
+  /** Al dar el rol de coordinador a un miembro de la red, su municipio en la
+   * estructura debe ser el mismo del usuario (si no tiene, se le asigna). */
+  private async alinearMunicipioMiembro(trx: Kysely<DB>, miembroId: string, municipioId: number) {
+    const actual = await this.repo.municipioDeMiembro(trx, miembroId);
+    if (!actual.tieneTerritorio) {
+      await this.repo.asignarTerritorioMiembro(trx, miembroId, municipioId);
+    } else if (actual.municipioId !== municipioId) {
+      throw new ReglaNegocioError('El miembro pertenece a otro municipio en la estructura');
     }
   }
 

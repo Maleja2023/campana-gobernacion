@@ -66,6 +66,11 @@ export class RedService {
     return this.database.comoUsuario(usuario.id, async (trx) => {
       if (!(await this.repo.miembroEnRed(trx, dto.superiorId))) throw new NoEncontradoError('Miembro superior no encontrado');
       await this.validarTerritorios(trx, dto.territorioIds ?? []);
+      if (dto.cargo === 'COORDINADOR') {
+        const ids = dto.territorioIds ?? [];
+        if (ids.length !== 1) throw new ReglaNegocioError('Indique el municipio del coordinador');
+        if ((await this.repo.municipiosEntre(trx, ids)).length !== 1) throw new ReglaNegocioError('El territorio del coordinador debe ser un municipio');
+      }
 
       const documento = this.cifrado.normalizarNumero(dto.documento);
       const telefono = dto.telefono ? this.cifrado.normalizarNumero(dto.telefono) : null;

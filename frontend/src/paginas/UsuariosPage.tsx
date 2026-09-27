@@ -250,6 +250,9 @@ function CrearUsuarioForm({ roles, miembros, onDone }: { roles: RolAsignable[]; 
   const [texto, setTexto] = useState('');
   const [resultados, setResultados] = useState<{ id: number; nombre: string; tipo: string }[]>([]);
   const [territorios, setTerritorios] = useState<{ id: number; nombre: string }[]>([]);
+  const [municipioId, setMunicipioId] = useState('');
+  const esCoordinador = rolesElegidos.includes('COORDINADOR') && !rolesElegidos.includes('CANDIDATO');
+  const municipios = useQuery({ queryKey: ['municipios'], queryFn: api.municipios, enabled: esCoordinador });
   const [error, setError] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [exito, setExito] = useState<{ login: string; claveTemporal: string }>();
@@ -278,7 +281,7 @@ function CrearUsuarioForm({ roles, miembros, onDone }: { roles: RolAsignable[]; 
       const res = await api.crearUsuario({
         login: login.trim(),
         roles: rolesElegidos,
-        territorioIds: territorios.map((t) => t.id),
+        territorioIds: esCoordinador ? [Number(municipioId)] : territorios.map((t) => t.id),
         miembroId: modo === 'existente' ? miembroId : undefined,
         documento: modo === 'nueva' ? documento : undefined,
         nombres: modo === 'nueva' ? nombres.trim() : undefined,
@@ -360,10 +363,23 @@ function CrearUsuarioForm({ roles, miembros, onDone }: { roles: RolAsignable[]; 
         <p className="territorio-elegido">El candidato ve todo el Caquetá: se le asigna el departamento completo.</p>
       ) : rolesElegidos.length > 0 && rolesElegidos.every((r) => r === 'LIDER') ? (
         <p className="territorio-elegido">Los líderes ven solo a sus referidos y su red: no llevan territorio.</p>
+      ) : esCoordinador ? (
+        <label>
+          Municipio del coordinador
+          <select value={municipioId} onChange={(e) => setMunicipioId(e.target.value)} required>
+            <option value="">{municipios.isPending ? 'Cargando municipios…' : 'Selecciona el municipio'}</option>
+            {(municipios.data ?? []).map((m) => (
+              <option key={m.id} value={m.id}>
+                {nombrePropio(m.nombre)}
+              </option>
+            ))}
+          </select>
+          <small className="helper">Solo verá los líderes, el ranking, las metas y los simpatizantes de este municipio.</small>
+        </label>
       ) : (
       <div className="territorio-editor">
         <label>
-          Agregar territorio <span className="optional">obligatorio para coordinadores y digitadores; define qué datos ve</span>
+          Agregar territorio <span className="optional">obligatorio para digitadores; define qué datos ve</span>
           <input placeholder="Escribe el nombre" value={texto} onChange={(e) => void buscarTerritorio(e.target.value)} />
         </label>
         {resultados.length > 0 && (

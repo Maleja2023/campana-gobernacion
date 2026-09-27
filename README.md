@@ -58,6 +58,10 @@ Luego `25_registro_sin_conexion.sql` (guarda la hora real de captura de los
 registros hechos sin señal) y `26_alcance_red.sql` (ranking, metas y alertas de
 líderes inactivos muestran solo la red que cada usuario puede ver).
 
+Y `27_coordinador_por_municipio.sql`: cada coordinador pertenece a un solo
+municipio y solo ve a los líderes de ese municipio (árbol, ranking, metas,
+inactivos y lista de líderes del registro).
+
 ## Registro sin conexión
 
 En `/registrar` se puede registrar sin señal (veredas sin cobertura):
@@ -96,7 +100,7 @@ En `/red` (menú "Mi red"):
 | Superadministrador | Todo | Todo, incluida la administración técnica | Obligatorio |
 | Candidato | Todo el departamento (se le asigna solo) | Solo consulta y reportes | Obligatorio |
 | Gerente de campaña | Todo el departamento | Usuarios, coordinadores, metas, exportes, alertas | Obligatorio |
-| Coordinador municipal | Solo su municipio | Registra, edita y retira; gestiona su estructura | Obligatorio |
+| Coordinador municipal | Solo su municipio (uno, obligatorio al crearlo) y los líderes de ese municipio | Registra, edita y retira; gestiona su estructura | Obligatorio |
 | Líder / referidor | Solo sus referidos y su red | Registra y comparte su enlace | No |
 | Digitador | Nada (sin reportes) | Solo registra, atribuyendo a un líder de su territorio | No |
 | Testigo electoral | Solo el módulo del día de elecciones (fase 2) | — | No |
