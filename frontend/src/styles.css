@@ -3108,3 +3108,20 @@ tbody tr:hover td {
   body { background: #fff !important; }
   .informe-ia { border: 0; box-shadow: none; }
 }
+
+/* ---------- Enlace de líderes y solicitudes ---------- */
+.enlace-lideres { border-left: 4px solid var(--acento); }
+.enlace-cifras .link-button { justify-self: start; font-size: 13px; }
+.solicitudes-lider { list-style: none; margin: 0; padding: 0; }
+.solicitudes-lider li { display: flex; gap: 16px; justify-content: space-between; align-items: flex-start; padding: 16px 2px; border-bottom: 1px solid var(--borde); }
+.solicitudes-lider li:last-child { border-bottom: 0; }
+.solicitud-datos { display: grid; gap: 6px; min-width: 0; }
+.solicitud-datos > strong { font-size: 15px; }
+.solicitud-datos > span, .solicitud-datos small { color: var(--texto-2); font-size: 13px; }
+.solicitud-datos dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px 20px; margin: 4px 0 0; }
+.solicitud-datos dt { font-size: 11.5px; color: var(--texto-3); text-transform: uppercase; letter-spacing: 0.04em; }
+.solicitud-datos dd { margin: 2px 0 0; font-size: 13.5px; }
+.solicitud-acciones { display: flex; gap: 8px; flex: none; }
+@media (max-width: 720px) {
+  .solicitudes-lider li { flex-direction: column; }
+}

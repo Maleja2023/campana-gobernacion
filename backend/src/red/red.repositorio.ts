@@ -79,7 +79,7 @@ export class RedRepositorio {
              count(s.persona_id)::integer as simpatizantes
         from campana.links_referido l
         left join campana.simpatizantes s on s.link_referido_id = l.id
-       where l.miembro_id = ${miembroId}
+       where l.miembro_id = ${miembroId} and l.proposito = 'VOTANTE'
        group by l.id, l.codigo, l.es_principal, l.activo, l.creado_en, l.expira_en
        order by l.es_principal desc, l.creado_en
     `.execute(db);
@@ -204,5 +204,26 @@ export class RedRepositorio {
       .values({ territorio_id: datos.territorioId, cantidad: datos.cantidad, fecha_inicio: datos.fechaInicio, fecha_limite: datos.fechaLimite })
       .returningAll()
       .executeTakeFirstOrThrow();
+  }
+
+  async enlaceLideres(db: Kysely<DB>) {
+    const { rows } = await sql<{ codigo: string; cargo_invitado: string; solicitudes_pendientes: number }>`
+      select codigo, cargo_invitado, solicitudes_pendientes from campana.mi_enlace_lideres()
+    `.execute(db);
+    return rows[0];
+  }
+
+  async solicitudes(db: Kysely<DB>, estado: string | undefined) {
+    const { rows } = await sql<Record<string, unknown> & { telefono_cifrado: Buffer | null }>`
+      select * from campana.solicitudes_lider_visibles(${estado ?? null})
+    `.execute(db);
+    return rows;
+  }
+
+  async resolverSolicitud(db: Kysely<DB>, id: string, aprobar: boolean, observacion: string | null) {
+    const { rows } = await sql<{ miembro_id: string | null; codigo_link: string | null }>`
+      select miembro_id, codigo_link from campana.resolver_solicitud_lider(${id}::uuid, ${aprobar}, ${observacion})
+    `.execute(db);
+    return rows[0];
   }
 }

@@ -37,6 +37,36 @@ export class RedService {
     });
   }
 
+  /** Enlace para sumar líderes (coordinador) o sublíderes (líder). null si el cargo no invita. */
+  async enlaceLideres(usuario: UsuarioSesion) {
+    return this.database.comoUsuario(usuario.id, async (trx) => {
+      const e = await this.repo.enlaceLideres(trx);
+      if (!e) return null;
+      return { codigo: e.codigo, url: `${this.urlRegistroBase}/${e.codigo}`, cargoInvitado: e.cargo_invitado, pendientes: e.solicitudes_pendientes };
+    });
+  }
+
+  /** Solicitudes para ser líder visibles para el usuario, con el celular descifrado para poder llamar. */
+  async solicitudes(usuario: UsuarioSesion, estado?: string) {
+    const filas = await this.database.comoUsuario(usuario.id, (trx) => this.repo.solicitudes(trx, estado));
+    return filas.map(({ telefono_cifrado, ...resto }) => ({
+      ...resto,
+      telefono: telefono_cifrado ? this.cifrado.descifrar(telefono_cifrado) : null,
+    }));
+  }
+
+  async resolverSolicitud(usuario: UsuarioSesion, id: string, aprobar: boolean, observacion?: string) {
+    return this.database.comoUsuario(usuario.id, async (trx) => {
+      const r = await this.repo.resolverSolicitud(trx, id, aprobar, observacion?.trim() || null);
+      return {
+        aprobada: aprobar,
+        miembroId: r?.miembro_id ?? null,
+        codigoLink: r?.codigo_link ?? null,
+        urlLink: r?.codigo_link ? `${this.urlRegistroBase}/${r.codigo_link}` : null,
+      };
+    });
+  }
+
   async crearLink(usuario: UsuarioSesion, dto: CrearLinkDto) {
     this.validarFechaFutura(dto.expiraEn);
     return this.database.comoUsuario(usuario.id, async (trx) => {

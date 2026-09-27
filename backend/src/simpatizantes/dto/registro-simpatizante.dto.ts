@@ -14,7 +14,29 @@ import {
   MaxLength,
   Min,
   Matches,
+  ValidateNested,
 } from 'class-validator';
+
+/** Respuestas de quien se registra por un enlace de líderes. */
+export class DatosLiderDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  zonaTrabajoId?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100000)
+  metaPropuesta?: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  organizacion?: string;
+}
 
 export class RegistroSimpatizanteDto {
   @IsOptional()
@@ -100,4 +122,10 @@ export class RegistroSimpatizanteDto {
   @Min(-90)
   @Max(90)
   lat?: number;
+
+  /** Solo en el registro público por un enlace de líderes. */
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => DatosLiderDto)
+  lider?: DatosLiderDto;
 }

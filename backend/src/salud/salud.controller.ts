@@ -14,6 +14,7 @@ const MIGRACIONES: [string, string][] = [
   ['30_tablero_reportes.sql', "to_regprocedure('campana.indicadores_tablero()')"],
   ['31_calidad.sql', "to_regprocedure('calidad.puntaje_lideres()')"],
   ['32_necesidades_ia.sql', "to_regprocedure('participacion.resumen_necesidades()')"],
+  ['33_enlace_lideres.sql', "to_regprocedure('campana.mi_enlace_lideres()')"],
 ];
 
 @Controller('salud')

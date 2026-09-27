@@ -10,6 +10,7 @@ import {
   IsOptional,
   IsUUID,
   IsString,
+  MaxLength,
   Length,
   Matches,
   Min,
@@ -96,4 +97,19 @@ export class CrearMetaTerritorioDto extends CrearMetaBaseDto {
   @IsInt()
   @Min(1)
   territorioId!: number;
+}
+export class ResolverSolicitudDto {
+  @IsBoolean()
+  aprobar!: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  observacion?: string;
+}
+
+export class SolicitudesQueryDto {
+  @IsOptional()
+  @IsIn(['PENDIENTE', 'APROBADA', 'RECHAZADA'])
+  estado?: string;
 }
