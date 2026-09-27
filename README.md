@@ -70,6 +70,11 @@ mapa de calor, capa de necesidades y brecha electoral por puesto. El
 potencial electoral por puesto y los límites de barrios y comunas se cargan
 a mano: ver `docs/mapas-datos.md`.
 
+Y `30_tablero_reportes.sql`: la base cuenta los días con la hora de Colombia;
+indicadores con crecimiento y avance de la meta, reportes por municipio y
+por líder, proyección de metas y bitácora de exportaciones (pantalla
+"Reportes"). La meta de un miembro ahora cuenta toda su red.
+
 ## Registro sin conexión
 
 En `/registrar` se puede registrar sin señal (veredas sin cobertura):

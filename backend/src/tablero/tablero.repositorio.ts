@@ -7,9 +7,7 @@ import type { DB } from '../database/db.types.js';
 export class TableroRepositorio {
   async indicadores(db: Kysely<DB>) {
     const { rows } = await sql`
-      select simpatizantes_activos, registros_hoy, registros_semana,
-             miembros_activos, alertas_abiertas, necesidades_reportadas
-        from campana.v_tablero
+      select * from campana.indicadores_tablero()
     `.execute(db);
     return rows[0];
   }

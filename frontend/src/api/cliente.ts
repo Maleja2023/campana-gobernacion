@@ -220,7 +220,83 @@ export type AlertaDetalle = {
   miembros: { id: string; nombres: string; apellidos: string; cargo_codigo: string; zona: string | null; referido_por: string | null }[];
 };
 export type Puesto = { id: number; nombre: string; direccion: string | null; lon: number | null; lat: number | null; simpatizantes?: number | null; potencial_electoral?: number | null; cobertura_pct?: number | null };
-export type Indicadores = { simpatizantes_activos: number | null; registros_hoy: number | null; registros_semana: number | null; miembros_activos: number | null; alertas_abiertas: number | null; necesidades_reportadas: number | null };
+export type Indicadores = {
+  simpatizantes_activos: number | null;
+  registros_hoy: number | null;
+  registros_ayer: number | null;
+  registros_semana: number | null;
+  registros_semana_anterior: number | null;
+  registros_mes: number | null;
+  meta: number | null;
+  avance_pct: string | number | null;
+  miembros_activos: number | null;
+  lideres_con_registros_semana: number | null;
+  alertas_abiertas: number | null;
+  necesidades_reportadas: number | null;
+};
+export type FiltrosReporte = { municipioId?: number; miembroId?: string; desde?: string; hasta?: string };
+export type TipoReporte = 'MUNICIPIOS' | 'LIDERES' | 'PUESTOS' | 'PROYECCION';
+export type FilaReporteMunicipio = {
+  municipio_id: number;
+  municipio: string;
+  simpatizantes: number;
+  en_rango: number;
+  ultimos_7_dias: number;
+  meta: number | null;
+  avance_pct: string | null;
+  lideres: number;
+  lideres_activos_semana: number;
+  necesidades: number;
+  puestos: number;
+  potencial_electoral: number | null;
+  cobertura_pct: string | null;
+};
+export type FilaReporteLider = {
+  miembro_id: string;
+  nombre: string;
+  cargo_codigo: string;
+  superior: string | null;
+  municipio: string | null;
+  activo: boolean;
+  propios: number;
+  red: number;
+  en_rango: number;
+  ultimos_7_dias: number;
+  ultimos_30_dias: number;
+  ultimo_registro: string | null;
+  meta: number | null;
+  avance_pct: string | null;
+  intentos_duplicado: number;
+  alertas_abiertas: number;
+};
+export type FilaReportePuesto = BrechaPuesto & { faltan: number | null };
+export type EstadoProyeccion = 'CUMPLIDA' | 'EN_CAMINO' | 'EN_RIESGO' | 'NO_ALCANZA' | 'VENCIDA';
+export type FilaProyeccion = {
+  tipo: 'MIEMBRO' | 'TERRITORIO';
+  referencia: string;
+  nombre: string;
+  meta: number;
+  registrados: number;
+  fecha_inicio: string;
+  fecha_limite: string;
+  dias_restantes: number;
+  ritmo_diario: string;
+  ritmo_necesario: string | null;
+  proyectado: number;
+  proyectado_pct: string;
+  fecha_estimada: string | null;
+  estado: EstadoProyeccion;
+};
+export type FilaBitacora = {
+  id: number;
+  exportado_en: string;
+  usuario: string;
+  recurso: string;
+  motivo: string;
+  formato: string;
+  cantidad_registros: number;
+  territorios: string | null;
+};
 export type RegistroDiario = { fecha: string | null; registros: number | null };
 export type LiderRanking = { miembro_id: string | null; nombre: string | null; cargo_codigo: string | null; activos: number | null; ultimos_7_dias: number | null; ultimo_registro: string | null; intentos_duplicado: number | null };
 export type MetaMiembro = { miembro_id: string | null; nombre: string | null; meta: number | null; registrados: number | null; porcentaje: number | null; fecha_limite: string | null };
@@ -324,6 +400,12 @@ export const api = {
   lideresRegistro: () => cliente.get<LiderRegistro[]>('/simpatizantes/lideres-registro'),
   configuracionRegistro: () => cliente.get<{ captchaSiteKey: string | null }>('/registro/configuracion'),
   documentoSimpatizante: (personaId: string) => cliente.get<DocumentoDescifrado>(`/simpatizantes/${personaId}/documento`),
+  reporteMunicipios: (f: FiltrosReporte) => cliente.get<FilaReporteMunicipio[]>(`/reportes/municipios${consulta(f)}`),
+  reporteLideres: (f: FiltrosReporte) => cliente.get<FilaReporteLider[]>(`/reportes/lideres${consulta(f)}`),
+  reportePuestos: (f: FiltrosReporte) => cliente.get<FilaReportePuesto[]>(`/reportes/puestos${consulta(f)}`),
+  proyeccionMetas: () => cliente.get<FilaProyeccion[]>('/reportes/proyeccion'),
+  exportarReporte: (body: FiltrosReporte & { reporte: TipoReporte; motivo: string }) => cliente.archivo('/reportes/exportar', body),
+  bitacoraExportaciones: () => cliente.get<FilaBitacora[]>('/reportes/exportaciones?limite=200'),
   exportarSimpatizantes: (body: { motivo: string; territorioId?: number; municipioId?: number; estado?: string; texto?: string }) =>
     cliente.archivo('/simpatizantes/exportar', body),
   alertas: (estado?: string) => cliente.get<Alerta[]>(`/calidad/alertas${estado ? `?estado=${estado}` : ''}`),
